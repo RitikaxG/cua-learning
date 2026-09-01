@@ -2,9 +2,10 @@
 
 ## Source of Truth
 
-CURRENT.md defines the active investigation.
+CURRENT.md is the source of truth for the active investigation and resume
+state.
 
-Subsystem notes contain durable understanding.
+Subsystem notes contain durable detailed understanding.
 
 Human-created diagrams contain visual mental models.
 
@@ -21,16 +22,15 @@ Owns:
 
 ### ChatGPT
 
-Teacher and reasoning partner.
+Teacher, architecture-reasoning partner, interviewer, and diagram reviewer.
 
-Uses CURRENT.md to resume.
+Uses CURRENT.md to resume and produces checkpoint handoffs.
 
 Asks for predictions.
 Explains concepts.
 Challenges mental models.
 Validates diagrams.
 Recommends targeted learning resources.
-Produces checkpoint handoffs.
 
 Does not maintain local files.
 
@@ -63,7 +63,8 @@ Not used as a substitute for subsystem understanding.
 
 ## Session Start
 
-Read CURRENT.md.
+Read CURRENT.md first. Read the referenced subsystem note only when additional
+detail is necessary.
 
 Resume from Current Stopping Boundary.
 
