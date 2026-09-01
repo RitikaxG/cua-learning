@@ -21,7 +21,7 @@ repository.
 
 ## Current Investigation
 
-Screenshot execution path
+macOS get_window_state screenshot execution path
 
 Detailed investigation: `01-screenshot.md`
 
