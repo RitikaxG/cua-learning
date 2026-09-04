@@ -4,6 +4,10 @@
 
 PHASE 2.5 — MY PERSONAL CUA ARCHITECTURE UNDERSTANDING
 
+## Current subsystem
+
+Driver runtime / agent-to-computer execution path
+
 ## Status
 
 Happy-path runtime understanding: GREEN
@@ -20,7 +24,10 @@ Happy-path runtime understanding: GREEN
 
 ## Next
 
-failure experiments / break assumptions
+failure experiment — deliberately break one assumption and inspect the failing
+boundary
 
-See [01-screenshot.md](./01-screenshot.md) for the final architecture model and
-[CUA_HAPPY_PATH.md](./CUA_HAPPY_PATH.md) for the runtime experiment.
+## Pointers
+
+- [subsystems/driver-runtime/README.md](./subsystems/driver-runtime/README.md)
+- [subsystems/driver-runtime/happy-path/README.md](./subsystems/driver-runtime/happy-path/README.md)

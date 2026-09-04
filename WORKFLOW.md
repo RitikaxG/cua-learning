@@ -42,11 +42,9 @@ It tells a fresh session:
 
 Do not duplicate detailed architecture here.
 
-### Subsystem notes
+### `subsystems/<name>/README.md`
 
-Examples: `01-screenshot.md`
-
-These contain durable detailed understanding from completed investigation work:
+This contains the current durable understanding of one subsystem:
 
 - runtime flow established
 - component responsibilities
@@ -58,29 +56,21 @@ These contain durable detailed understanding from completed investigation work:
 - architectural inference
 - unresolved questions
 
-A new session reads these only when the detail is needed.
+A new session reads this only when the detail is needed.
 
-### `00-system-map.md`
+### `subsystems/<name>/<experiment>/`
 
-Compact accumulated architecture that I have personally established across
-multiple investigations.
+This contains evidence and a reproducible experiment that developed or changed
+the subsystem understanding.
 
-Only add architecture here after I understand it.
+Do not create an experiment folder before the experiment exists. Do not create
+a decision file before a meaningful decision exists. Do not create global
+architecture maps until multiple understood subsystems need connecting. Do not
+create incremental notes for each question.
 
-### `decisions.md`
-
-Engineering decisions and tradeoffs that I have personally reasoned through.
-
-### `learn-later.md`
-
-Concepts deliberately deferred so they do not become rabbit holes.
-
-### `diagrams/`
-
-My human-created mental models.
-
-Diagrams are first-class learning artifacts and should be linked from the
-relevant subsystem note.
+Prefer updating the subsystem README after understanding changes. Runtime
+traces are evidence, not durable learning docs. Preserve only final useful
+diagrams, not intermediate whiteboards.
 
 ---
 
@@ -413,14 +403,12 @@ Codex then uses the handoff to update the learning workspace.
 
 Codex should:
 
-1. update the relevant subsystem note with durable detailed understanding;
-2. update `00-system-map.md` only for broader architecture I personally
-   established;
-3. update `decisions.md` only for genuine decisions/tradeoffs;
-4. update `learn-later.md` only for deliberately deferred concepts;
-5. rewrite `CURRENT.md` to represent the new live state;
-6. preserve/link relevant diagrams;
-7. show a concise diff for review.
+1. update the relevant subsystem README with durable detailed understanding;
+2. update the associated experiment folder when new evidence or reproduction
+   material exists;
+3. rewrite `CURRENT.md` to represent the new live state;
+4. preserve/link only relevant final diagrams;
+5. show a concise diff for review.
 
 After the checkpoint, `CURRENT.md` must be sufficient for a fresh session to
 know exactly where to resume.

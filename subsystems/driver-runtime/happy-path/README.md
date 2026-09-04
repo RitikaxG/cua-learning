@@ -18,7 +18,7 @@ terminal MCP Client → cua-driver mcp Proxy → Unix socket → Cua Daemon
 
 ## Final happy-path whiteboard
 
-![Final Cua Driver happy-path whiteboard](./diagrams/cua-driver-happy-path-final.png)
+![Final Cua Driver happy-path whiteboard](./whiteboard.png)
 
 ## Setup and verification
 
@@ -59,28 +59,14 @@ sessions. The same daemon PID remained alive after the individual proxy
 processes exited with their stdin sessions. This proves the proxy/session and
 daemon lifetimes differ.
 
-## Trace files
+## Run
 
-`run_cua_happy_path.sh` writes the following under
-`/tmp/cua-learning-trace` by default:
-
-```text
-00-permissions.json
-00-daemon-before.txt
-01-request.jsonl
-01-response.jsonl
-02-request.jsonl
-02-response.jsonl
-03-request.jsonl
-03-response.jsonl
-03-summary.json
-final-screenshot.png
-04-daemon-after.txt
+```bash
+./run.sh
 ```
 
-`03-response.jsonl` contains the returned image bytes/base64 and should not be
-printed or committed. The decoded screenshot is
-`/tmp/cua-learning-trace/final-screenshot.png`.
+`run.sh` keeps detailed runtime evidence in a temporary local directory and
+produces the captured screenshot; these runtime artifacts are not committed.
 
 ## Stop boundary
 

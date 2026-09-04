@@ -6,7 +6,7 @@ on macOS, not a source build or the complete Cua codebase.
 
 ## Final architecture whiteboard
 
-![Final Cua Driver architecture whiteboard](./diagrams/cua-driver-architecture-final.png)
+![Final Cua Driver architecture whiteboard](./architecture.png)
 
 ## Canonical flow
 
@@ -52,5 +52,13 @@ macOS → Driver → SDK Adapter → Daemon → Unix socket → Proxy → stdout
 An MCP Proxy/session lifetime is different from a Cua Daemon lifetime. A proxy
 can exit when its stdin/MCP session ends while the daemon remains alive.
 
-The concrete experiment, setup, trace format, and stop boundary are in
-[CUA_HAPPY_PATH.md](./CUA_HAPPY_PATH.md).
+## Deferred
+
+- Tokio/runtime internals
+- ScreenCaptureKit internals
+- macOS Accessibility internals
+- socket internals
+- cross-platform Driver implementations
+
+The concrete experiment and reproduction are in
+[happy-path/README.md](./happy-path/README.md).

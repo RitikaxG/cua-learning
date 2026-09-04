@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Exercise the real macOS path:
 # JSON-RPC/stdin → MCP Proxy → Unix socket → Cua Daemon → SDK Adapter/Driver → macOS.
-# Usage: ./run_cua_happy_path.sh [optional-running-app-name]
+# Usage: ./run.sh [optional-running-app-name]
 
 APP_NAME="${1:-}"
 TRACE_DIR="${TRACE_DIR:-/tmp/cua-learning-trace}"
