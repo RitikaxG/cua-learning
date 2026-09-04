@@ -52,6 +52,10 @@ macOS → Driver → SDK Adapter → Daemon → Unix socket → Proxy → stdout
 An MCP Proxy/session lifetime is different from a Cua Daemon lifetime. A proxy
 can exit when its stdin/MCP session ends while the daemon remains alive.
 
+`get_window_state` validates target ownership. Its tool execution failures are
+distinct from JSON-RPC transport failures, and an invalid tool call does not
+take down the daemon.
+
 ## Deferred
 
 - Tokio/runtime internals
@@ -62,3 +66,6 @@ can exit when its stdin/MCP session ends while the daemon remains alive.
 
 The concrete experiment and reproduction are in
 [happy-path/README.md](./happy-path/README.md).
+
+Verified failure experiments are recorded in
+[failures/README.md](./failures/README.md).

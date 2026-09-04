@@ -12,6 +12,14 @@ Driver runtime / agent-to-computer execution path
 
 Happy-path runtime understanding: GREEN
 
+## Current investigation
+
+PID/window ownership mismatch failure
+
+## Observed
+
+`window_owner_pid_mismatch`
+
 ## Verified
 
 - MCP Client → Proxy → Socket → Daemon → SDK Adapter → Driver → macOS
@@ -24,8 +32,7 @@ Happy-path runtime understanding: GREEN
 
 ## Next
 
-failure experiment — deliberately break one assumption and inspect the failing
-boundary
+inspect minimum relevant source to confirm exact failure ordering
 
 ## Pointers
 
