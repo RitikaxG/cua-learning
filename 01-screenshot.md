@@ -1,63 +1,56 @@
-# Screenshot Execution Path
+# Cua Driver Architecture — macOS `get_window_state`
 
-## Diagrams
+This is the final architecture model established from the first
+`get_window_state` happy path. It describes the released/prebuilt Cua Driver
+on macOS, not a source build or the complete Cua codebase.
 
-![MCP request to Cua Proxy](./diagrams/01-mcp-request-to-cua-proxy.png)
+## Final architecture whiteboard
 
-MCP request entry through the proxy boundary.
+![Final Cua Driver architecture whiteboard](./diagrams/cua-driver-architecture-final.png)
 
-![Cua Proxy to Driver dispatch](./diagrams/02-cua-proxy-to-driver-dispatch.png)
+## Canonical flow
 
-Proxy-to-daemon dispatch into the driver runtime.
+```text
+Agent
+→ MCP Client
+→ MCP Proxy
+→ Unix Domain Socket
+→ Cua Daemon
+→ SDK Adapter
+→ Cua Driver
+→ macOS implementation
+```
 
-![get_window_state to screenshot boundary](./diagrams/03-get-window-state-to-screenshot-boundary.png)
+## Responsibilities and boundaries
 
-The inspected tool path stops at the screenshot boundary.
+- The Agent decides which computer capability is needed.
+- The MCP Client sends JSON-RPC operations such as `tools/call`; in the
+  experiment, the terminal played this role.
+- `cua-driver mcp` starts the MCP Proxy. It reads JSON-RPC on stdin, extracts
+  the tool and arguments, converts them into Cua's internal daemon request,
+  and sends that request to the daemon.
+- The Unix Domain Socket (`cua-driver.sock`) is the local IPC endpoint between
+  Proxy and Daemon. It is not a process.
+- The Cua Daemon is the long-running runtime/service process. It owns service
+  lifetime, accepts internal requests, and dispatches into Driver execution.
+- The SDK Adapter is the small boundary from daemon/runtime callers into the
+  public Driver SDK interface, keeping daemon logic independent of
+  Driver/platform internals.
+- Cua Driver resolves the requested capability to the platform implementation,
+  executes it, and returns the result.
 
-## Runtime Flow Established
+For macOS `get_window_state`, the Driver implementation validates the PID and
+window, walks the Accessibility tree, re-checks scope, captures a screenshot,
+combines state, and returns a `ToolResult`.
 
-MCP Client
-  -> JSON-RPC `tools/call` via stdin
-Cua Proxy
-  -> parses external request
-  -> extracts tool name + args
-  -> constructs `DaemonRequest`
-  -> sends over socket
-Cua Daemon
-  -> `invoke_daemon_tool`
-  -> `SdkAdapter::invoke_raw`
-  -> CuaDriver runtime
-  -> ToolRegistry
-  -> `GetWindowStateTool.invoke`
-  -> validate pid/window ownership
-  -> gather accessibility state
-  -> `spawn_blocking`
-  -> `screenshot_window_bytes(window_id)`
-  -> ???
+```text
+macOS → Driver → SDK Adapter → Daemon → Unix socket → Proxy → stdout → MCP Client
+```
 
-## Important Architecture Conclusions
+## Verified runtime fact
 
-1. Proxy and daemon have different responsibilities. The proxy is the request/protocol boundary: it translates the external MCP request into Cua's internal daemon request. The daemon is the long-running execution host and, for the inspected path, hosts the embedded Cua Driver runtime.
-2. There are two important process boundaries: MCP Client -> Cua Proxy and Cua Proxy -> Cua Daemon. Daemon -> SdkAdapter -> CuaDriver -> ToolRegistry -> Tool is an in-process call path for the inspected route.
-3. Cua Driver is the programmatic computer-control runtime/interface over OS-specific capabilities; it is not the concrete screenshot implementation.
-4. ToolRegistry resolves a requested tool name to its registered implementation. It does not itself perform the computer action.
-5. `get_window_state` is broader than “take a screenshot”: it validates the target and gathers accessibility/UI state before or alongside requesting screenshot pixels.
-6. `spawn_blocking` does not make screenshot capture fire-and-forget. Blocking work runs on a blocking worker, while `GetWindowStateTool` awaits its completion before continuing.
-7. Reliability distinction: request received != tool executed successfully != screenshot pixels successfully captured.
+An MCP Proxy/session lifetime is different from a Cua Daemon lifetime. A proxy
+can exit when its stdin/MCP session ends while the daemon remains alive.
 
-## Architectural Reasoning
-
-The proxy/daemon separation may provide useful properties such as keeping the request-entry layer lightweight and allowing execution/runtime state to live in a longer-running process.
-
-This is reasoning, not a verified design guarantee; it needs later code or runtime evidence.
-
-## Still Unknown
-
-- what happens inside `screenshot_window_bytes()`
-- which component actually captures pixels
-- ScreenCaptureKit / fallback behavior
-- permission and capture failures
-- how image bytes are produced
-- how `GetWindowStateTool` builds the final result
-- how the result returns to the MCP client
-
+The concrete experiment, setup, trace format, and stop boundary are in
+[CUA_HAPPY_PATH.md](./CUA_HAPPY_PATH.md).
