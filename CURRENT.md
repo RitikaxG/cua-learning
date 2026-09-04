@@ -4,28 +4,33 @@
 
 PHASE 2.5 — MY PERSONAL CUA ARCHITECTURE UNDERSTANDING
 
-The goal of this phase is personal runtime understanding through experiments,
-not repository-wide reconnaissance or issue hunting.
+This phase is almost complete.
+
+Goal: personally understand the driver-runtime execution path well enough to
+begin learning through real issues/contributions rather than continuing broad
+pre-study.
+
+Do NOT restart repository reconnaissance.
 
 ## Current subsystem
 
 Driver runtime / agent-to-computer execution path.
 
-Current continuous path:
+Continuous path currently being studied:
 
 Agent
 → MCP Client
-→ MCP Proxy
+→ `cua-driver mcp` Proxy
 → Unix Domain Socket
-→ Cua Daemon
+→ long-running Cua Daemon
 → SDK Adapter
 → Cua Driver
 → macOS implementation
-→ Accessibility / screenshot observation
+→ AX / screenshot observation
 → result back to agent
 
-Do not expand into Fleet, sandbox orchestration, Kubernetes, or unrelated Cua
-subsystems unless the current runtime investigation requires it.
+Do not expand into Fleet, Kubernetes, sandbox orchestration, or unrelated
+subsystems yet.
 
 ## Understanding status
 
@@ -33,197 +38,187 @@ Happy-path runtime understanding: GREEN
 
 I can personally explain:
 
-- what the MCP Client sends
-- JSON-RPC `tools/call`
-- what `cua-driver mcp` proxy does
-- why Proxy lifetime differs from Daemon lifetime
-- Unix socket as local IPC between Proxy and Daemon
-- Daemon as long-running runtime/service
-- SDK Adapter as the boundary into the Driver SDK contract
-- Driver tool dispatch to macOS implementation
-- `get_window_state` target validation
-- WindowServer vs Accessibility
-- AX tree vs screenshot as separate observation channels
-- how results return to the MCP client / agent
+- MCP Client and JSON-RPC `tools/call`
+- MCP Proxy responsibility
+- Proxy lifetime vs Daemon lifetime
+- Unix Domain Socket as local IPC
+- Daemon as long-running service/runtime owner
+- SDK Adapter boundary
+- Driver dispatch into macOS implementation
+- WindowServer target identity
+- Accessibility / AX semantic observation
+- screenshot / pixel observation
+- how results return to the agent
 
-Architecture details live in:
+Detailed architecture:
 `subsystems/driver-runtime/README.md`
 
-Happy-path reproduction lives in:
-`subsystems/driver-runtime/happy-path/`
+## Happy path — COMPLETE
 
-## Happy path verified
+Experimentally verified:
 
-Experimentally verified with released/prebuilt Cua Driver on macOS:
-
-- daemon startup and lifetime
-- MCP stdio proxy
+- Cua Driver daemon startup
+- `cua-driver mcp` stdio Proxy
 - `list_apps`
 - `list_windows`
 - `get_window_state`
-- real Accessibility tree
-- real screenshot
-- JSON-RPC result path back through stdout
-- MCP Proxy can exit while Daemon remains alive
-- later requests can reuse the still-running Daemon
+- AX tree
+- screenshot
+- result returned through MCP JSON-RPC
+- Proxy can exit while Daemon remains alive
 
-Also verified with a real Codex MCP consumer:
+Also verified using a real Codex MCP consumer:
 
 Codex Agent
-→ Codex MCP Client
-→ cua-driver MCP Proxy
+→ MCP
+→ Cua Proxy
 → Daemon
 → Driver
-→ `get_window_state`
+→ macOS
 
-A normal control turn successfully returned both:
+A normal observation successfully returned AX information and pixels.
 
-- AX information
-- valid screenshot
+## Failure/degradation experiments — COMPLETE FOR CURRENT PURPOSE
 
-## Failure scenarios completed
-
-Detailed evidence:
+Detailed notes:
 `subsystems/driver-runtime/failures/README.md`
 
-### 1. PID / window ownership mismatch — COMPLETE
+Verified:
 
-Valid `window_id` + wrong `pid`
+### PID/window mismatch
 
-Result:
-`window_owner_pid_mismatch`
+valid window + wrong PID
+→ `window_owner_pid_mismatch`
+
+Target ownership is checked before expensive observation work.
+
+### Stale/nonexistent window
+
+valid PID + nonexistent window
+→ `window_id_not_found`
+
+Window scope is validated before observation proceeds.
+
+### Valid WindowServer surface without matching AXWindow
+
+→ `ax_window_unresolved`
 
 Verified:
 
-- request reaches `get_window_state`
-- WindowServer ownership preflight rejects mismatched target
-- rejection happens before AX walk and screenshot capture
-- tool failure is distinct from JSON-RPC transport failure
-- Daemon remains healthy
+- target can be valid even when exact AX mapping fails
+- Cua returns an empty semantic tree rather than elements from another surface
+- AX and screenshot are independent observation channels
+- AX failure can still produce truthful pixels
 
-### 2. Stale / nonexistent window ID — COMPLETE
+### Intermittent macOS observation/capture behavior
 
-Valid PID + nonexistent/stale `window_id`
+Observed:
 
-Result:
-`window_id_not_found`
+- same valid normal iTerm2 window sometimes returned `px_capture_unavailable`
+- both ScreenCaptureKit and shell fallback were observed failing
+- later identical observation succeeded
+- one real Codex turn received neither usable AX nor screenshot
+- Codex did not hallucinate or act on stale evidence
 
-Verified:
-
-- request reaches `get_window_state`
-- window-scope preflight rejects nonexistent target
-- expensive observation work does not proceed
-- Daemon remains healthy
-
-### 3. Live window with unresolved AX surface — COMPLETE
-
-Valid PID
-+ valid WindowServer window
-+ correct ownership
-+ no matching `AXWindow` / `CGWindowID`
-
-Result:
-`ax_window_unresolved`
-
-Verified:
-
-- this is degraded success, not target-validation failure
-- Cua returns an empty AX tree rather than semantic elements from another surface
-- AX resolution and screenshot capture are separate channels
-- an AX-unresolved surface can still return a valid screenshot
-
-Mental model:
-
-AX ✓ + screenshot ✓
-→ full observation
-
-AX ✗ + screenshot ✓
-→ pixel-only degraded observation
-
-AX ✓ + screenshot ✗
-→ AX-only degraded observation
-
-AX ✗ + screenshot ✗
-→ no trustworthy observation
-
-The visual explanation is:
-`subsystems/driver-runtime/failures/cua_get_window_state_flowchart.png`
-
-## Parked reliability investigation
-
-Observed intermittent macOS `get_window_state` observation/capture failures on
-the same valid normal iTerm2 window.
-
-Evidence included:
-
-- repeated same-window calls sometimes returned screenshots and sometimes
-  `px_capture_unavailable`
-- one failure showed both:
-  - ScreenCaptureKit capture failure
-  - `screencapture -l` fallback failure
-- later calls against the unchanged window succeeded
-- during a real Codex agent turn, the same normal window temporarily returned:
-  - `ax_window_unresolved`
-  - zero AX elements
-  - `px_capture_unavailable`
-- Codex did not hallucinate or act on stale state
-- Codex surfaced that the observation was unreliable
-- a later fresh turn against the same PID/window succeeded
-
-Current interpretation:
-
-This is an investigation candidate, NOT yet a confirmed upstream bug.
-
-Reason: the current reproduction machine is macOS 13.1 while documented current
-Cua Driver support begins at macOS 14.
+Status: PARKED INVESTIGATION.
 
 Do NOT spend more time on this now.
 
-Resume it only when:
+Reason: current reproduction machine is macOS 13.1 while current documented
+support starts at macOS 14.
 
-- a supported macOS 14+ environment is available, or
-- this becomes a deliberate contribution candidate.
+Only resume this investigation if:
 
-Then reproduce on a supported/current build before proposing retries, fixes,
-issues, or PRs.
+- supported macOS 14+ reproduction becomes available, or
+- it becomes a deliberate upstream contribution candidate.
 
-## Current investigation
+## Final pre-issue experiment
 
-Continue learning `get_window_state` degraded-observation behavior.
+This is the next task.
 
-Next failure scenario:
+### Deliberately break the Daemon lifecycle boundary
 
-AX succeeds
-+
-screenshot capture fails
+We already verified:
 
-Goal:
+Proxy exits
+→ Daemon remains alive
 
-Verify that when pixel capture is unavailable but a trustworthy AX tree exists,
-Cua preserves the semantic observation rather than failing the entire state.
+Now test the opposite direction:
 
-Questions to answer experimentally:
+MCP Client / Agent
+→ MCP Proxy
+→ Unix socket
+→ Daemon
 
-1. Does the response retain the AX elements?
-2. What screenshot failure metadata is returned?
-3. Is the result considered degraded rather than a hard tool failure?
-4. Can an actual agent still safely understand the UI through AX?
-5. Does the Daemon remain healthy?
+While the MCP client/proxy session is active, deliberately terminate ONLY the
+long-running Cua Daemon. Then invoke a normal Cua tool through the still-active
+MCP client/session.
 
-Do not intentionally investigate ScreenCaptureKit internals yet unless this
-experiment creates a concrete question.
+The purpose is to understand runtime ownership and recovery behavior.
 
-## Immediate next step
+### Do not run immediately
 
-Design the smallest experiment that produces or observes:
+A fresh GPT session must first:
 
-AX ✓
-+
-screenshot ✗
+1. read this `CURRENT.md`
+2. inspect only the minimum current runtime state needed
+3. confirm which process is:
+   - the long-running Daemon
+   - the active MCP Proxy/client session
+4. ask me to predict what will happen before breaking anything
 
-Use the existing runtime path.
+Do not start with a source-code investigation.
 
-Follow the learning loop:
+### Prediction questions
+
+Before running the experiment, I should predict:
+
+- Will the Proxy notice the socket/Daemon disappeared?
+- Will the next tool call return a connection error?
+- Will the Proxy automatically reconnect?
+- Will Cua automatically restart the Daemon?
+- Will the MCP session itself die?
+- Will a later request recover?
+- How will Codex/the MCP consumer surface the failure?
+
+The goal is not to guess correctly. The goal is to compare my mental model
+against actual runtime behavior.
+
+### Experiment shape
+
+Keep the test minimal:
+
+1. establish a healthy Daemon + MCP session
+2. confirm a simple tool succeeds
+3. record Daemon PID
+4. terminate ONLY that Daemon process
+5. keep the MCP client/session alive
+6. invoke one simple Cua tool again
+7. observe exact result
+8. determine whether recovery is automatic, partial, or absent
+9. check process/socket state afterward
+10. explain the behavior back in my own words
+
+Do not kill unrelated processes. Do not deliberately modify the target UI. Do
+not introduce multiple failures at once.
+
+Prefer a simple read-only tool such as `list_apps` for the post-failure request
+unless evidence shows another tool is more appropriate.
+
+### Questions the experiment must answer
+
+- Who actually owns Daemon recovery?
+- Does the Proxy assume the Daemon is permanently available?
+- Is reconnection handled at the Proxy, CLI, launcher, or elsewhere?
+- Does killing the Daemon invalidate the MCP session?
+- What error crosses each boundary?
+- Does the Agent recover naturally?
+- What state survives the Daemon restart, if any?
+- Does a fresh tool call require a fresh Proxy/session?
+
+Only inspect source code AFTER the runtime result creates a concrete question.
+
+Follow:
 
 RUN
 → PREDICT
@@ -237,22 +232,50 @@ RUN
 → RUN AGAIN
 → EXPLAIN IT BACK
 
-Do not begin with a theory lecture or broad source investigation.
+## Stop boundary for Phase 2.5
 
-## Stop boundary
+This Daemon lifecycle break is the final planned pre-issue experiment.
 
-For the current driver-runtime study, stop normal-path tracing.
+After it, do NOT keep inventing failure scenarios merely to understand more of
+the repository.
 
-Continue only through meaningful failure/degradation scenarios until I can
-personally explain:
+If I can explain:
 
+- happy-path runtime
+- process/lifetime ownership
 - target validation
-- observation-channel independence
-- degraded results
+- degraded observations
 - safe failure behavior
-- major recovery boundaries
+- Daemon failure/recovery boundary
 
-Do not chase every possible error code.
+then PHASE 2.5 is complete enough.
+
+## What happens next
+
+After the Daemon lifecycle experiment:
+
+START ISSUE DISCOVERY.
+
+Issue discovery becomes the learning mechanism.
+
+Desired loop:
+
+find candidate issue
+→ reproduce it
+→ identify responsible runtime boundary
+→ read minimum relevant code
+→ understand that piece deeply
+→ propose alternatives
+→ implement
+→ test
+→ maintainer discussion / PR
+
+Do not wait until I understand the entire Cua repository.
+
+The goal is:
+understand subsystem deeply enough
+→ make progressively harder real contributions
+→ learn additional runtime concepts just in time.
 
 ## Pointers
 
