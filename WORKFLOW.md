@@ -21,6 +21,21 @@ Permanent protocol for HOW the learning process works.
 
 It should not contain current investigation details.
 
+### `CONVENTIONS.md`
+
+Working defaults for HOW the learning should be documented, visualized, and
+handed off.
+
+It records current preferences for:
+
+- subsystem/investigation documentation structure
+- diagram style and approved references
+- Codex/checkpoint prompt generation
+- resumability and handoff quality
+
+These conventions are intentionally evolvable. The latest explicit user
+decision overrides older conventions or repository text.
+
 ### `CURRENT.md`
 
 Live resume state.
@@ -124,8 +139,10 @@ Codex is the repository-aware investigator.
 It should read:
 
 - Cua's `AGENTS.override.md`
+- `cua-learning/WORKFLOW.md`
+- `cua-learning/CONVENTIONS.md`
 - `cua-learning/CURRENT.md`
-- the relevant subsystem note when necessary
+- the relevant subsystem/investigation note when necessary
 
 Codex may:
 
@@ -163,22 +180,25 @@ It is not a substitute for understanding the runtime path.
 
 # 3. Starting or Resuming Any Session
 
-A fresh ChatGPT session must be able to resume without previous conversation
-history.
+A fresh ChatGPT or Codex session must be able to resume without previous
+conversation history.
 
 At session start:
 
-1. Read `CURRENT.md` first.
-2. Determine:
+1. Read `WORKFLOW.md`.
+2. Read `CONVENTIONS.md`.
+3. Read `CURRENT.md`.
+4. Determine:
    - current phase
    - current subsystem
    - current investigation
    - understanding level
    - exact stopping boundary
    - next engineering question
-3. Read the referenced subsystem note only when more detail is needed.
-4. Inspect referenced diagrams when useful.
-5. Resume from the recorded stopping boundary.
+5. Read only the subsystem/investigation notes referenced by `CURRENT.md` when
+   more detail is needed.
+6. Inspect referenced diagrams when useful.
+7. Resume from the recorded stopping boundary.
 
 Do NOT restart previous architecture merely because the conversation is new.
 
@@ -364,9 +384,37 @@ AI-generated architecture.
 Codex may organize/link diagrams during checkpoints, but should not silently
 add unverified architecture to them.
 
+Diagram/document presentation conventions live in `CONVENTIONS.md` and may
+evolve as better patterns emerge.
+
 ---
 
-# 9. Checkpoints
+# 9. Before Generating Codex / Checkpoint Prompts
+
+This applies whenever I ask for a Codex prompt, update prompt, checkpoint
+prompt, handoff prompt, or similar prompt — including midway through a long
+conversation.
+
+Before generating the prompt:
+
+1. Re-read `CONVENTIONS.md`.
+2. Re-read `CURRENT.md`.
+3. Read the relevant subsystem/investigation note referenced by `CURRENT.md`
+   when the prompt will update or continue that work.
+4. Incorporate the latest explicit decisions from the current conversation.
+5. If the current conversation conflicts with older repository text or
+   conventions, the latest explicit user decision wins and the prompt should
+   bring the durable workspace up to that approved state.
+6. Preserve established structures and approved artifacts unless I explicitly
+   ask to redesign them.
+7. Return one complete copy-paste prompt unless I ask for another format.
+
+Do not generate checkpoint/update prompts from conversation memory alone when
+the durable workspace exists.
+
+---
+
+# 10. Checkpoints
 
 A checkpoint preserves enough durable state that the current conversation can
 be discarded safely.
@@ -415,7 +463,7 @@ know exactly where to resume.
 
 ---
 
-# 10. Context-Safety Rule
+# 11. Context-Safety Rule
 
 Never rely on a long ChatGPT/Codex conversation as the only location of
 important learning state.
@@ -436,12 +484,13 @@ Therefore:
 
 **losing conversation history should be safe.**
 
-If the workspace and conversation disagree, investigate the discrepancy rather
-than silently assuming the conversation is correct.
+The latest explicit user decision overrides older conventions or durable text.
+When that happens, update the workspace at the next checkpoint rather than
+silently reverting to the older state.
 
 ---
 
-# 11. Before Fixing Real Issues
+# 12. Before Fixing Real Issues
 
 Do not jump from finding code to implementing a fix.
 
@@ -466,15 +515,21 @@ I must be able to explain every important engineering decision.
 
 ---
 
-# 12. Core Rules
+# 13. Core Rules
 
 **Conversation history is disposable.**
 
 **The learning workspace is durable.**
 
+**WORKFLOW.md defines the investigation protocol.**
+
+**CONVENTIONS.md defines current presentation/documentation defaults.**
+
 **CURRENT.md tells us where to resume.**
 
 **Subsystem notes preserve detailed understanding.**
+
+**Latest explicit user decisions override older conventions/state.**
 
 **Codex gathers evidence.**
 
