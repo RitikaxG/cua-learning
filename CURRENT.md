@@ -2,22 +2,30 @@
 
 ## Phase
 
-PHASE 2.5 — MY PERSONAL CUA ARCHITECTURE UNDERSTANDING
+PHASE 3 — ISSUE-DRIVEN LEARNING / CONTRIBUTION DISCOVERY
 
-This phase is almost complete.
+PHASE 2.5 is complete enough.
 
-Goal: personally understand the driver-runtime execution path well enough to
-begin learning through real issues/contributions rather than continuing broad
-pre-study.
+I now understand the driver-runtime happy path and major failure/lifecycle
+boundaries well enough that further learning should come from real issues,
+design history, reproductions, and contributions rather than broad pre-study.
 
 Do NOT restart repository reconnaissance.
+
+Do NOT invent additional failure experiments merely to learn more of Cua.
 
 ## Current subsystem
 
 Driver runtime / agent-to-computer execution path.
 
-Continuous path currently being studied:
+Current issue-driven thread:
 
+**Daemon restart mid-MCP-session → control-session and daemon-owned state
+recovery.**
+
+Continuous runtime boundary:
+
+```text
 Agent
 → MCP Client
 → `cua-driver mcp` Proxy
@@ -25,257 +33,334 @@ Agent
 → long-running Cua Daemon
 → SDK Adapter
 → Cua Driver
-→ macOS implementation
-→ AX / screenshot observation
-→ result back to agent
+→ platform implementation
+```
+
+Current focus is only the Proxy ↔ Daemon lifecycle/session boundary.
 
 Do not expand into Fleet, Kubernetes, sandbox orchestration, or unrelated
-subsystems yet.
+subsystems unless a selected real issue requires it.
 
 ## Understanding status
 
-Happy-path runtime understanding: GREEN
+### Happy-path runtime: GREEN
 
 I can personally explain:
 
-- MCP Client and JSON-RPC `tools/call`
-- MCP Proxy responsibility
-- Proxy lifetime vs Daemon lifetime
-- Unix Domain Socket as local IPC
-- Daemon as long-running service/runtime owner
-- SDK Adapter boundary
-- Driver dispatch into macOS implementation
-- WindowServer target identity
-- Accessibility / AX semantic observation
-- screenshot / pixel observation
-- how results return to the agent
+- MCP Client and JSON-RPC `tools/call`;
+- MCP Proxy responsibility;
+- Proxy lifetime vs Daemon lifetime;
+- Unix Domain Socket as local IPC;
+- Daemon as long-running service/runtime owner;
+- SDK Adapter boundary;
+- Driver dispatch into the platform implementation;
+- WindowServer target identity;
+- Accessibility / AX semantic observation;
+- screenshot / pixel observation;
+- how results return to the agent.
 
 Detailed architecture:
 `subsystems/driver-runtime/README.md`
+
+### Process / transport lifecycle: GREEN
+
+I can personally explain:
+
+- why killing the Daemon does not kill the MCP Proxy/session;
+- why a stale socket pathname can remain with no live listener;
+- why the next tool call returns `Connection refused`;
+- why the running Proxy does not automatically revive the Daemon in the
+  observed path;
+- why a replacement Daemon listening at the same socket pathname can be used
+  by the same Proxy on a later per-tool request;
+- the difference between automatic recovery and transport recoverability once
+  the runtime is restored;
+- the difference between per-tool data connections and the persistent control
+  connection.
+
+Detailed lifecycle thread:
+`subsystems/driver-runtime/daemon-lifecycle/README.md`
+
+Mind map:
+`subsystems/driver-runtime/daemon-lifecycle/mindmap.md`
+
+### Control-session / daemon-owned state recovery: YELLOW
+
+I understand why the persistent control connection exists and that it is lost
+when the Daemon dies, but I have not yet established the intended correctness
+contract for:
+
+- control-session re-establishment after Daemon replacement;
+- Daemon instance/generation semantics;
+- what session-owned state should be restored vs invalidated;
+- whether an old Proxy may safely continue using its old session ID against a
+  new Daemon;
+- request gating/retry while control recovery is incomplete;
+- concurrent calls racing a restart;
+- cached Proxy state across Daemon replacement;
+- actual higher-level agent recovery policy.
 
 ## Happy path — COMPLETE
 
 Experimentally verified:
 
-- Cua Driver daemon startup
-- `cua-driver mcp` stdio Proxy
-- `list_apps`
-- `list_windows`
-- `get_window_state`
-- AX tree
-- screenshot
-- result returned through MCP JSON-RPC
-- Proxy can exit while Daemon remains alive
+- Cua Driver daemon startup;
+- `cua-driver mcp` stdio Proxy;
+- `list_apps`;
+- `list_windows`;
+- `get_window_state`;
+- AX tree;
+- screenshot;
+- result returned through MCP JSON-RPC;
+- Proxy can exit while Daemon remains alive;
+- a real Codex MCP consumer can traverse the same path.
 
-Also verified using a real Codex MCP consumer:
-
-Codex Agent
-→ MCP
-→ Cua Proxy
-→ Daemon
-→ Driver
-→ macOS
-
-A normal observation successfully returned AX information and pixels.
-
-## Failure/degradation experiments — COMPLETE FOR CURRENT PURPOSE
+## Failure/degradation work — COMPLETE FOR CURRENT PURPOSE
 
 Detailed notes:
 `subsystems/driver-runtime/failures/README.md`
 
 Verified:
 
-### PID/window mismatch
+- PID/window ownership mismatch → `window_owner_pid_mismatch`;
+- stale/nonexistent window → `window_id_not_found`;
+- valid WindowServer surface without exact AXWindow → `ax_window_unresolved`;
+- AX and pixel capture can degrade independently;
+- intermittent macOS capture behavior can propagate to a real agent turn.
 
-valid window + wrong PID
-→ `window_owner_pid_mismatch`
+The intermittent macOS capture investigation remains PARKED because the local
+machine is macOS 13.1 while current documented support starts at macOS 14.
+Only revisit on supported macOS or as a deliberate real contribution target.
 
-Target ownership is checked before expensive observation work.
+## Daemon lifecycle experiment — COMPLETE
 
-### Stale/nonexistent window
+### Experiment A — Daemon death while MCP session remains alive
 
-valid PID + nonexistent window
-→ `window_id_not_found`
+Starting from a healthy Daemon + Proxy + successful `list_apps`:
 
-Window scope is validated before observation proceeds.
+- only the long-running Daemon was terminated;
+- the same MCP Proxy remained alive;
+- the same MCP session remained alive;
+- the Unix socket pathname remained but no process listened behind it;
+- the next `list_apps` reached the Proxy and failed with daemon transport
+  `Connection refused`;
+- a second call failed the same way;
+- no replacement Daemon appeared during the bounded check;
+- the running Proxy did not automatically restart the Daemon.
 
-### Valid WindowServer surface without matching AXWindow
+### Experiment B — replacement Daemon with same Proxy/session
 
-→ `ax_window_unresolved`
+Without restarting Codex or the MCP Proxy:
 
-Verified:
+- a replacement Daemon was started manually/externally;
+- it listened at the same configured socket pathname;
+- the same Proxy made a fresh per-tool Unix connection;
+- `list_apps` succeeded;
+- a fresh Proxy/MCP session was not required for that read-only call.
 
-- target can be valid even when exact AX mapping fails
-- Cua returns an empty semantic tree rather than elements from another surface
-- AX and screenshot are independent observation channels
-- AX failure can still produce truthful pixels
+### Architectural conclusion
 
-### Intermittent macOS observation/capture behavior
+```text
+DATA PLANE
+fresh per-tool Unix connection
+→ can recover once replacement Daemon is available
 
-Observed:
+CONTROL PLANE
+persistent session control connection
+→ dies with old Daemon
+→ is not automatically re-established in the current observed/design path
+```
 
-- same valid normal iTerm2 window sometimes returned `px_capture_unavailable`
-- both ScreenCaptureKit and shell fallback were observed failing
-- later identical observation succeeded
-- one real Codex turn received neither usable AX nor screenshot
-- Codex did not hallucinate or act on stale evidence
+Therefore:
 
-Status: PARKED INVESTIGATION.
+> Daemon restart can restore the request transport without proving that
+> daemon-side session ownership/state has been safely reconstructed.
 
-Do NOT spend more time on this now.
+## Source/design history established
 
-Reason: current reproduction machine is macOS 13.1 while current documented
-support starts at macOS 14.
+Minimum source inspection established:
 
-Only resume this investigation if:
+- macOS MCP startup checks Daemon liveness and can launch CuaDriver before the
+  Proxy steady-state loop;
+- each forwarded tool call opens a fresh Unix stream;
+- the Proxy mints one session ID and opens one persistent control connection;
+- `session_begin(session_id)` registers the control session with the Daemon;
+- control-connection EOF is used to trigger `session_end` cleanup;
+- session cleanup can own cursor/config/recording state;
+- ordinary steady-state Proxy forwarding does not automatically launch a new
+  Daemon after a later transport failure;
+- upstream PR `trycua/cua#1779` explicitly records
+  daemon-restart-mid-session control-connection re-establishment as deferred.
 
-- supported macOS 14+ reproduction becomes available, or
-- it becomes a deliberate upstream contribution candidate.
+## Real issue connections
 
-## Final pre-issue experiment
+These are now issue-discovery evidence, not a new study syllabus.
 
-This is the next task.
+### `trycua/cua#1777`
 
-### Deliberately break the Daemon lifecycle boundary
+Session-identity model / session-owned lifecycle history.
 
-We already verified:
+### `trycua/cua#1779`
 
-Proxy exits
-→ Daemon remains alive
+Merged persistent-control-connection work. Closest design history to the
+current thread. Mid-session Daemon restart control reconnection was deferred.
 
-Now test the opposite direction:
+### `trycua/cua#2618`
 
-MCP Client / Agent
-→ MCP Proxy
-→ Unix socket
-→ Daemon
+Closed issue demonstrating a real sustained workload where the Daemon
+terminated while the caller remained alive and the next request received
+Unix-socket `Connection refused`.
 
-While the MCP client/proxy session is active, deliberately terminate ONLY the
-long-running Cua Daemon. Then invoke a normal Cua tool through the still-active
-MCP client/session.
+### `trycua/cua#3337`
 
-The purpose is to understand runtime ownership and recovery behavior.
+Open Linux/X11 abnormal-exit lifecycle issue. Shows that runtime/session revival
+can coexist with external OS resources left orphaned after the old process
+dies.
 
-### Do not run immediately
+Architectural lesson:
 
-A fresh GPT session must first:
+> process/RPC recovery ≠ complete state/resource recovery.
 
-1. read this `CURRENT.md`
-2. inspect only the minimum current runtime state needed
-3. confirm which process is:
-   - the long-running Daemon
-   - the active MCP Proxy/client session
-4. ask me to predict what will happen before breaking anything
+### `trycua/cua#2002`
 
-Do not start with a source-code investigation.
+Opposite lifetime direction: session/host work ends while driver/resource state
+can remain alive. Useful design-history context for lifecycle ownership.
 
-### Prediction questions
+## Current investigation
 
-Before running the experiment, I should predict:
+This is no longer a pre-study exercise.
 
-- Will the Proxy notice the socket/Daemon disappeared?
-- Will the next tool call return a connection error?
-- Will the Proxy automatically reconnect?
-- Will Cua automatically restart the Daemon?
-- Will the MCP session itself die?
-- Will a later request recover?
-- How will Codex/the MCP consumer surface the failure?
+Current investigation question:
 
-The goal is not to guess correctly. The goal is to compare my mental model
-against actual runtime behavior.
+> What is the intended correctness contract when a Daemon is replaced while an
+> MCP Proxy remains alive, and what must happen to its control session and
+> daemon-owned state before normal tool calls are considered safely recovered?
 
-### Experiment shape
+### First bounded sub-question
 
-Keep the test minimal:
+Determine from minimum current code/design history:
 
-1. establish a healthy Daemon + MCP session
-2. confirm a simple tool succeeds
-3. record Daemon PID
-4. terminate ONLY that Daemon process
-5. keep the MCP client/session alive
-6. invoke one simple Cua tool again
-7. observe exact result
-8. determine whether recovery is automatic, partial, or absent
-9. check process/socket state afterward
-10. explain the behavior back in my own words
+1. what the new Daemon does when a per-tool request carries a Proxy session ID
+   for which the new Daemon has never received `session_begin`;
+2. whether such a request can create or mutate session-owned state;
+3. if it can, what lifetime/reaper owns that state without a live control
+   connection;
+4. which tools require an active registered control session and which merely
+   accept the stamped session ID;
+5. whether Daemon instance/generation identity or compatibility checks protect
+   this boundary today.
 
-Do not kill unrelated processes. Do not deliberately modify the target UI. Do
-not introduce multiple failures at once.
+This is the most important next trace because it decides whether the observed
+control-plane gap is:
 
-Prefer a simple read-only tool such as `list_apps` for the post-failure request
-unless evidence shows another tool is more appropriate.
+- only missing continuity/UX;
+- a deliberate invalidation model;
+- a cleanup/resource-lifetime bug;
+- a trust/correctness problem;
+- or some combination.
 
-### Questions the experiment must answer
+## Candidate contribution directions
 
-- Who actually owns Daemon recovery?
-- Does the Proxy assume the Daemon is permanently available?
-- Is reconnection handled at the Proxy, CLI, launcher, or elsewhere?
-- Does killing the Daemon invalidate the MCP session?
-- What error crosses each boundary?
-- Does the Agent recover naturally?
-- What state survives the Daemon restart, if any?
-- Does a fresh tool call require a fresh Proxy/session?
+Do not select one until the first bounded sub-question is answered.
 
-Only inspect source code AFTER the runtime result creates a concrete question.
+### Candidate A — mid-session control reconnection
 
-Follow:
+Closest to current understanding and explicitly deferred in PR `#1779`.
 
-RUN
-→ PREDICT
-→ OBSERVE
-→ TRACE
-→ ASK WHY
-→ READ MINIMUM RELEVANT CODE
-→ FORM MENTAL MODEL
-→ BREAK / CHANGE ONE THING
-→ PREDICT FAILURE
-→ RUN AGAIN
-→ EXPLAIN IT BACK
+Potential concerns to evaluate:
 
-## Stop boundary for Phase 2.5
+- replay `session_begin` vs mint a new generation;
+- block tool calls until registration succeeds;
+- old session ID trust across Daemon generations;
+- retry semantics;
+- concurrency;
+- compatibility after Daemon replacement.
 
-This Daemon lifecycle break is the final planned pre-issue experiment.
+### Candidate B — session-state recovery / invalidation contract
 
-After it, do NOT keep inventing failure scenarios merely to understand more of
-the repository.
+Understand and possibly test/document what should happen to:
 
-If I can explain:
+- cursor;
+- config overrides;
+- recordings;
+- grants/approvals;
+- other daemon-owned state.
 
-- happy-path runtime
-- process/lifetime ownership
-- target validation
-- degraded observations
-- safe failure behavior
-- Daemon failure/recovery boundary
+Do not assume all state should be replayed. Some state may need deliberate
+invalidation after a runtime generation change.
 
-then PHASE 2.5 is complete enough.
+### Candidate C — external resource cleanup after abnormal exit
 
-## What happens next
+`#3337` is a concrete open issue but is Linux/X11-specific and adjacent to the
+current macOS Proxy/Daemon thread.
 
-After the Daemon lifecycle experiment:
+### Candidate D — long-run Daemon failure diagnostics/stability
 
-START ISSUE DISCOVERY.
+Only revisit `#2618`-class work if current main or a supported release shows a
+reproducible current failure.
 
-Issue discovery becomes the learning mechanism.
+## Immediate scope
 
-Desired loop:
+For the next investigation, prefer roughly 3–5 important files/functions.
+Likely areas only if needed:
 
-find candidate issue
-→ reproduce it
-→ identify responsible runtime boundary
-→ read minimum relevant code
-→ understand that piece deeply
-→ propose alternatives
-→ implement
-→ test
+- Proxy control-session establishment/reconnection path;
+- Daemon request dispatch/session gate;
+- core session identity/end tracking;
+- cursor/config/recording ownership hooks;
+- relevant tests and PR `#1779` design history.
+
+Do not inspect unrelated Driver tools or platform internals unless one selected
+state path requires it.
+
+Always separate:
+
+### OBSERVED
+
+Supported by code, test, runtime evidence, or upstream design history.
+
+### INFERENCE
+
+Reasoning such as the possibility of session-owned state being recreated
+without a control reaper after Daemon replacement.
+
+### UNKNOWN
+
+The intended recovery/invalidation contract and exact current behavior until
+traced/tested.
+
+## Exact stopping boundary
+
+The lifecycle-break experiment itself is finished.
+
+Do NOT run another runtime experiment immediately.
+
+Next session should begin by:
+
+1. reading this `CURRENT.md`;
+2. reading `subsystems/driver-runtime/daemon-lifecycle/README.md`;
+3. inspecting the lifecycle mind map if useful;
+4. answering the first bounded sub-question from minimum current code/design
+   evidence;
+5. asking me to predict behavior before any new targeted runtime reproduction;
+6. using that result to decide which real issue/contribution candidate to
+   pursue.
+
+The intended loop is now:
+
+```text
+real design/issue question
+→ predict
+→ inspect minimum code/history
+→ form invariant
+→ reproduce only if needed
+→ compare designs/tradeoffs
+→ select contribution
+→ implement/test
 → maintainer discussion / PR
+```
 
 Do not wait until I understand the entire Cua repository.
-
-The goal is:
-understand subsystem deeply enough
-→ make progressively harder real contributions
-→ learn additional runtime concepts just in time.
 
 ## Pointers
 
@@ -284,3 +369,5 @@ understand subsystem deeply enough
 - `subsystems/driver-runtime/happy-path/README.md`
 - `subsystems/driver-runtime/failures/README.md`
 - `subsystems/driver-runtime/failures/cua_get_window_state_flowchart.png`
+- `subsystems/driver-runtime/daemon-lifecycle/README.md`
+- `subsystems/driver-runtime/daemon-lifecycle/mindmap.md`
