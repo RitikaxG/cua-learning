@@ -4,41 +4,61 @@
 
 PHASE 3 — ISSUE-DRIVEN LEARNING / CONTRIBUTION DISCOVERY
 
-## Current thread
+## Current subsystem
 
-Daemon restart mid-MCP-session → control-session recovery → daemon-owned
-session-state semantics → candidate issue discovery.
+Driver Runtime
 
-## GREEN
+## Completed enough
 
 - happy path
-- Proxy vs Daemon lifetimes
-- socket pathname vs listener
-- tested `Connection refused` case
-- startup auto-launch vs no steady-state auto-restart
-- manual replacement recovery
-- fresh per-tool connections
-- data plane vs control plane
+- observation/targeting failures
+- process/transport lifecycle
 
-## YELLOW
+## Current lifecycle model
 
-- old `session_id` against replacement Daemon
-- control reconnection
-- session-owned state recovery/cleanup
-- restart/session semantics
-- retry semantics
-- Agent/SDK recovery
+- Proxy survives Daemon death.
+- Dead Daemon → next fresh connection gets `Connection refused`.
+- No automatic steady-state restart occurred.
+- A manually restored Daemon can be reached by the same Proxy.
+- Data plane recovers through fresh connections.
+- Persistent control relationship does not automatically come back.
+- Daemon-owned session state after replacement is unresolved.
 
 ## Tested / not tested
 
-**TESTED:** Daemon dead before the next request.
+**TESTED:** Daemon dead **before** the next request.
 
-**NOT TESTED:** Daemon dies during an active request.
+**NOT TESTED:** Daemon dies **during** an active request.
 
-## Current exact question
+## Current exact engineering question
 
-What happens when a replacement Daemon receives tool calls carrying the old
-Proxy `session_id` without a newly established persistent control registration?
+What does the replacement Daemon do when a surviving Proxy sends a tool request
+carrying its old `session_id`, but the replacement Daemon has never received a
+new `session_begin` for that session?
+
+## Next bounded investigation
+
+1. Inspect Proxy control registration.
+2. Inspect Daemon `session_begin` / `session_end`.
+3. Inspect normal request/session gating.
+4. Inspect session bookkeeping.
+5. Inspect only necessary cursor/config/recording ownership code.
+6. Compare with `#1777` / PR `#1779`.
+7. Classify OBSERVED / INFERENCE / UNKNOWN.
+8. Do not run a new runtime experiment until the user predicts expected
+   behavior.
+
+## Possible outcomes to distinguish
+
+- unregistered old session rejected
+- stateless calls allowed but stateful calls gated
+- old session accepted and state recreated
+- another intended recovery mechanism exists
+
+## Stop boundary
+
+Do not broad-reconnoiter the repo, invent another failure, or implement a fix.
+First establish the intended session/control correctness contract.
 
 ## Pointers
 
@@ -46,3 +66,4 @@ Proxy `session_id` without a newly established persistent control registration?
 - `subsystems/driver-runtime/happy-path/README.md`
 - `subsystems/driver-runtime/failures/README.md`
 - `subsystems/driver-runtime/daemon-lifecycle/README.md`
+- `subsystems/driver-runtime/daemon-lifecycle/daemon_lifecycle_break_flowchart.png`

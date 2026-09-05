@@ -1,123 +1,260 @@
-# Cua Driver — Daemon Lifecycle Break
+# Cua Driver — Daemon Lifecycle / Recovery
 
-## Goal
+## Investigation goal
 
-Understand what survives when the Daemon disappears while an MCP Proxy and its
-MCP session remain alive, and what recovery is still unknown.
+Understand what breaks, survives, and recovers when the long-running Daemon
+disappears while an MCP Proxy and session remain alive. The current boundary is
+data-plane recovery versus control-session/daemon-owned-state recovery.
 
 ## Lifecycle break flowchart
 
 ![Cua Driver daemon lifecycle break](./daemon_lifecycle_break_flowchart.png)
 
-## Healthy baseline
+## Healthy runtime design
 
-- The Proxy and Daemon are separate processes.
-- The data plane forwards each tool call over a fresh Unix connection.
-- The control plane is one persistent `session_begin(session_id)` connection.
+```text
+MCP Client → cua-driver mcp Proxy → Unix socket → Cua Daemon → Driver
+```
 
-## Scenario 1 — Daemon dead before next request [TESTED]
-
-**TESTED.** This is the tested case; Daemon death during an active request is
-not tested.
-
-**Setup:** A healthy Proxy, MCP session, Daemon, and successful `list_apps`.
-
-**Prediction:** The next call would show whether the Proxy/session survived and
-whether the Daemon was restarted automatically.
-
-**Observed:** The Daemon was killed before the next `list_apps`. The Proxy and
-MCP session stayed alive. The next call opened a fresh Unix connection and
-failed with `Connection refused`; the Proxy returned a daemon transport/MCP tool
-error. No automatic Daemon restart occurred.
-
-**Conclusion:** A dead Daemon breaks the Proxy → Daemon request boundary without
-automatically ending the MCP session or restarting the Daemon.
-
-## Scenario 2 — stale socket pathname [TESTED / SOURCE-EXPLAINED]
-
-**TESTED / SOURCE-EXPLAINED.** The socket pathname remained after the Daemon
-died, but no Daemon was listening. Pathname existence is not Daemon liveness.
-A replacement Daemon can bind the same configured path after stale-path cleanup.
-
-## Scenario 3 — startup ownership vs steady-state recovery [TESTED / SOURCE-EXPLAINED]
-
-**TESTED / SOURCE-EXPLAINED.** MCP startup can ensure that a Daemon exists
-before Proxy steady state begins. The running Proxy does not automatically
-restart a Daemon that later dies.
-
-## Scenario 4 — manual replacement Daemon [TESTED]
-
-**TESTED.** A replacement Daemon was started manually at the same socket path.
-The same Proxy and same MCP session remained alive; the next `list_apps`
-succeeded. No new Proxy was required.
-
-## Why transport recovery works
-
-Each tool call opens a fresh Unix connection. Once a replacement Daemon listens
-at the same socket path, later tool calls can reach it. This proves data-plane
-transport recovery, not automatic recovery or reconstructed session state.
-
-## Data plane vs control plane
-
-- **Data plane:** a fresh per-tool Unix connection.
+- **Data plane:** a fresh Unix connection for each normal tool call.
 - **Control plane:** a persistent `session_begin(session_id)` connection for
-  session lifetime and cleanup semantics.
+  session lifetime and cleanup ownership.
 
-The old control connection is lost when the old Daemon dies. A replacement
+Lifecycle baseline: Daemon PID 5263 (`CuaDriver.app` `cua-driver serve`), Proxy
+PID 69593 (`cua-driver mcp`), socket
+`~/Library/Caches/cua-driver/cua-driver.sock`; `list_apps` succeeded.
+
+## Experiment 1 — Daemon dead before next request
+
+### Prediction
+
+The next call would reveal whether the Proxy/session survived, how the missing
+Daemon failure crossed MCP, and whether anything restarted it.
+
+### Baseline
+
+The Daemon, Proxy, MCP session, socket path, and `list_apps` were healthy.
+
+### Break introduced
+
+Only the Daemon was terminated. It was dead **before** the next `list_apps`.
+This is not a Daemon-dies-during-request test.
+
+### Exact observed result
+
+- Old Daemon PID 5263 was gone; Proxy PID 69593 and the MCP session survived.
+- The socket pathname remained, but no Daemon listener existed.
+- No replacement `cua-driver serve` appeared.
+- The first and second `list_apps` calls through the same session failed with a
+  daemon transport/MCP tool error caused by `Connection refused`.
+- No automatic recovery occurred.
+
+### Where the request failed
+
+```text
+MCP Client → existing Proxy → fresh Unix connect → no Daemon listener
+→ Connection refused → Proxy transport/MCP tool error → Agent tool failure
+```
+
+### What survived
+
+- MCP client/session
+- Proxy process
+- socket pathname
+
+### What disappeared
+
+- Daemon process and Unix listener
+- old Daemon process memory
+- old persistent Proxy ↔ Daemon control connection
+
+### What this proves
+
+The Proxy and Daemon are separate failure domains. A later data-plane call uses
+a fresh connection and fails at the absent listener. The running Proxy did not
+automatically restart the Daemon.
+
+### What this does NOT prove
+
+It does not describe Daemon death during an active request, partial execution,
+retry safety, or a replacement Daemon's control/session relationship with the
+old Proxy.
+
+## Unix socket lifecycle
+
+```text
+socket pathname exists
+!= listener exists
+!= Daemon alive
+```
+
+After Daemon death, the pathname remained. Source inspection established that a
+replacement startup can remove/replace a stale endpoint and bind a **new** Unix
+listener at the same configured path. The path is an address, not proof of the
+same listener or process.
+
+## Startup ownership vs steady-state supervision
+
+At Proxy startup, source inspection showed: check Daemon liveness, launch
+`CuaDriver.app` / `serve` if needed on macOS, wait, then enter Proxy operation.
+Later per-tool forwarding does not invoke that path.
+
+```text
+startup auto-launch != steady-state Daemon supervision
+```
+
+## Experiment 2 — manually restore replacement Daemon
+
+### Prediction
+
+Fresh per-tool connections could reach a replacement Daemon at the same address
+without replacing the Proxy or MCP session.
+
+### Setup
+
+The same MCP client, session, and Proxy PID 69593 remained alive. A replacement
+Daemon, PID 48613, was manually started at the same socket pathname.
+
+### Observed result
+
+The same Proxy/session then called `list_apps` successfully. No new Proxy was
+required.
+
+### Why it recovered
+
+```text
+tool call → UnixStream::connect(socket) → request → response → connection ends
+next tool call → another fresh connection
+```
+
+Once the replacement listened at the same address, the next fresh connection
+reached the new process.
+
+### What this proves
+
+**Automatic Daemon recovery:** not observed.
+
+**Data-plane transport recoverability after external/manual restore:** verified.
+
+### What this does NOT prove
+
+Successful `list_apps` does not prove that control registration or daemon-owned
+state was reconstructed at the replacement Daemon.
+
+## Current final lifecycle model
+
+### Data plane
+
+Normal tool execution uses a fresh Unix connection per tool call. A manually
+restored Daemon at the same path can serve later requests from the same Proxy.
+
+### Control plane
+
+At Proxy startup, the Proxy creates/uses a `session_id`, opens a long-lived
+control connection, and sends `session_begin(session_id)`. This separate
+connection represents session lifetime/cleanup ownership.
+
+### Daemon-owned session state
+
+Potential state includes cursor/overlay ownership, per-session config,
+recording, and daemon-side bookkeeping. When the old Daemon dies, its memory and
+control connection die. The Proxy may retain `session_id`, but the replacement
 Daemon does not automatically receive a new `session_begin`.
 
-## Session-owned state after replacement
+**Data-plane recovery:** verified.
 
-### Known
+**Control-session / daemon-owned-state recovery:** not yet understood.
 
-- The old Daemon process memory does not survive replacement.
-- The Proxy retains its session ID and can send later tool calls.
-- A read-only `list_apps` call succeeded through the replacement Daemon.
+## Tested vs not tested
 
-### Potential daemon-owned state
+**TESTED:** Daemon dead **before** the next request.
 
-- cursor/overlay ownership
-- per-session configuration
-- recording
-- daemon-side session bookkeeping
+**NOT TESTED:** Daemon dies **during** an active request:
 
-### Unknown
+```text
+tool starts → Proxy connects → Daemon begins executing → Daemon dies → unknown
+```
 
-Whether old-session requests can recreate or safely use session-owned state
-without a live replacement control registration, and what must be restored or
-invalidated.
+This separate class includes unknown EOF/timeout/transport behavior, partial
+actions, and retry safety for mutating operations.
 
-## Not yet tested — Daemon dies during active request
+## Current correctness boundary
 
-**NOT TESTED.** No conclusion has been drawn about partial requests, mutating
-actions, retry safety, or Agent/SDK behavior when the Daemon dies mid-request.
+What happens when a replacement Daemon receives a normal tool request stamped
+with the surviving Proxy's old `session_id`, but never received a new
+`session_begin` for that session?
 
-## Relevant upstream issues / PRs
+This is a design/correctness question, not a confirmed bug.
 
-- `#1777` — session identity/lifecycle
-- PR `#1779` — persistent control connection; mid-session Daemon reconnect
-  deferred
-- `#2618` — Daemon disappearance followed by `Connection refused` (closed)
-- `#3337` — crash/revive can leave external MPX state behind
-- `#2002` — opposite lifecycle direction / cleanup problem
+## Design questions to inspect next
 
-## What is clear now
+1. What does `session_begin(session_id)` establish: active registration,
+   lifetime/reaper semantics, or both?
+2. How does the Daemon handle a normal request whose ID it never saw through
+   `session_begin`: reject, stateless-only, broad acceptance, lazy state, or
+   another mechanism?
+3. Which operations require a registered/live control session: observation,
+   cursor, config, recording, or browser/session-sensitive work?
+4. Can per-tool requests create state without live control registration? If so,
+   who cleans it up and can it become orphaned?
+5. After replacement, should control reconnect with the same identity, should
+   the old session be invalidated, or should a new Daemon-side generation exist?
+6. Which state should survive versus disappear: cursor, config, recording,
+   permissions/grants, and cached runtime state?
+7. Are normal calls intentionally allowed while data plane is healthy but the
+   control/session relationship is missing?
+8. If the replacement has a different version, does Proxy metadata/tool caching
+   require compatibility or tool-list revalidation?
+9. What happens during Daemon death in an active request, including partial
+   execution and safe retries? **NOT YET TESTED.**
 
-- The tested failure is Daemon death **before** the next request.
-- Proxy/session survival and manual replacement recover later data-plane calls.
-- Startup auto-launch and steady-state restart are different responsibilities.
-- Data-plane recovery does not establish control/session-state recovery.
+## Minimum next source trace
 
-## What remains unclear
+Inspect only the minimum source/design evidence for the old-session-id question:
 
-- What does a replacement Daemon do with tool calls carrying the old Proxy
-  `session_id` without a new persistent control registration?
-- How should session-owned state be recovered, invalidated, or cleaned up?
-- Which retries are safe, especially for partial or mutating actions?
-- What recovery belongs to the Agent/SDK layer?
+- `libs/cua-driver/rust/crates/cua-driver/src/proxy.rs`: session ID creation,
+  persistent control connection, `session_begin`, control loss, per-tool
+  session-ID stamping
+- `libs/cua-driver/rust/crates/cua-driver/src/serve.rs`: `session_begin`,
+  `session_end`, request dispatch, active-session gating
+- `libs/cua-driver/rust/crates/cua-driver-core/src/session.rs`: identity,
+  active/ended semantics, cleanup/reaper behavior
 
-## Current stopping boundary
+Then inspect only cursor/config/recording ownership code necessary to determine
+whether an unregistered session can create state. Use `#1777` and PR `#1779`
+for design intent; do not read the entire Driver repository.
 
-Do not run random new lifecycle experiments. Next: understand design semantics,
-identify a concrete lifecycle issue candidate, reproduce it, then propose, fix,
-and test it.
+## How the next investigation proceeds
+
+```text
+design question → minimum source/design history → OBSERVED / INFERENCE / UNKNOWN
+→ establish invariant → user prediction → narrow repro → inspect issues/PRs
+→ classify problem → choose contribution candidate
+```
+
+Do not run a new experiment until the user has predicted its behavior.
+
+## Related issue / PR context
+
+- `#1777` — session identity/lifecycle model and session-owned state context
+- PR `#1779` — persistent control connection/session cleanup; mid-session
+  Daemon control reconnection explicitly deferred
+- `#2618` — real Daemon disappearance followed by `Connection refused` (closed)
+- `#3337` — abnormal exit can leave external Linux MPX state behind
+- `#2002` — opposite lifecycle direction / cleanup ownership problem
+
+These are context, not an automatically selected contribution target.
+
+## Candidate contribution directions — NOT YET CHOSEN
+
+- mid-session control reconnection
+- explicit session invalidation/new-session semantics after replacement
+- session-owned state cleanup/recovery correctness
+- external resource cleanup after abnormal process death
+- retry/uncertain-execution semantics if a real gap is reproduced
+
+## Stopping boundary
+
+No random new lifecycle break. Next session begins with the old-session-id /
+control-registration design question, establishes the intended contract, and
+only then chooses a targeted reproduction or contribution candidate.
