@@ -144,6 +144,22 @@ It should read:
 - `cua-learning/CURRENT.md`
 - the relevant subsystem/investigation note when necessary
 
+Every fresh Codex session must also ground itself in the current live Cua
+checkout before investigating. The learning workspace records what I currently
+understand; the Cua checkout is the implementation source of truth.
+
+At the beginning of a fresh Codex investigation:
+
+1. Read the applicable Cua repository instructions, including
+   `AGENTS.override.md`.
+2. Confirm the current branch, commit, and working-tree state.
+3. Use `CURRENT.md` and its referenced investigation note to identify the exact
+   Cua files/functions relevant to the active engineering question.
+4. Inspect those files/functions in the current checkout before reasoning from
+   older learning notes.
+5. Do not perform broad repository reconnaissance unless the bounded
+   investigation genuinely requires it.
+
 Codex may:
 
 - locate relevant code
@@ -199,6 +215,16 @@ At session start:
    more detail is needed.
 6. Inspect referenced diagrams when useful.
 7. Resume from the recorded stopping boundary.
+
+For a fresh Codex session, then ground the investigation in the current Cua
+checkout before tracing, testing, breaking, or proposing changes:
+
+1. Read the current Cua repository instructions.
+2. Confirm branch, commit, and working-tree state.
+3. Open the exact Cua files/functions named by `CURRENT.md` or the active
+   investigation README.
+4. Verify that the current implementation still matches the recorded mental
+   model before relying on it.
 
 Do NOT restart previous architecture merely because the conversation is new.
 
@@ -488,6 +514,11 @@ The latest explicit user decision overrides older conventions or durable text.
 When that happens, update the workspace at the next checkpoint rather than
 silently reverting to the older state.
 
+If the current Cua source contradicts `cua-learning`, surface the discrepancy
+before changing the durable model. Determine whether the implementation changed
+since the learning note was written or whether the previous mental model was
+incorrect. Do not silently overwrite either side.
+
 ---
 
 # 12. Before Fixing Real Issues
@@ -528,6 +559,8 @@ I must be able to explain every important engineering decision.
 **CURRENT.md tells us where to resume.**
 
 **Subsystem notes preserve detailed understanding.**
+
+**The current Cua checkout is the implementation source of truth.**
 
 **Latest explicit user decisions override older conventions/state.**
 
