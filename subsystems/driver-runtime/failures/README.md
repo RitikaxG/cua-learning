@@ -1,5 +1,8 @@
 # Driver Runtime — Failure Experiments
 
+Daemon lifecycle and recovery are recorded separately in
+[daemon-lifecycle/README.md](../daemon-lifecycle/README.md).
+
 ## 1. PID / window ownership mismatch
 
 **Prediction:** Calling `get_window_state` with a valid `window_id` but the wrong
