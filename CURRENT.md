@@ -25,6 +25,7 @@ session-state semantics → candidate issue discovery.
 - old `session_id` against replacement Daemon
 - control reconnection
 - session-owned state recovery/cleanup
+- restart/session semantics
 - retry semantics
 - Agent/SDK recovery
 

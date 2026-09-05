@@ -5,6 +5,8 @@
 The runtime takes a tool request from an Agent/MCP client and executes it
 against the local computer through the long-running Cua Driver daemon.
 
+![Final Cua Driver architecture whiteboard](./architecture.png)
+
 ## Main execution path
 
 ```text
@@ -27,14 +29,45 @@ Agent
 - The SDK Adapter reaches the Driver contract.
 - The Driver/platform implementation executes the requested computer action.
 
-## What I have verified
+## Happy-path understanding
+
+The normal path is an MCP JSON-RPC tool call entering the Proxy, crossing the
+local socket to the Daemon, reaching the SDK Adapter and Driver/platform code,
+then returning a result to the Agent. The Proxy is tied to its MCP session;
+the Daemon is a separate long-running runtime process.
+
+## Target and observation failures
+
+`get_window_state` validates that a WindowServer window belongs to the supplied
+PID and still exists before expensive observation. A valid WindowServer surface
+may still lack an exact Accessibility mapping; Cua then returns an empty AX tree
+rather than semantic elements from another surface. AX and screenshot are
+separate observation channels.
+
+## Proxy and Daemon lifecycle
+
+The Proxy and Daemon have independent lifetimes. When the Daemon was dead
+before a later tool call, the existing Proxy/session stayed alive but its fresh
+Unix connection failed. A manually started replacement Daemon at the same path
+served a later call through that same Proxy/session. This proves transport
+recovery for fresh tool connections; control/session-state recovery remains
+separate.
+
+## What I have actually tested
 
 - Happy-path MCP tool execution reaches macOS and returns results to the Agent.
-- Proxy and Daemon are separate processes with independent lifetimes.
-- `get_window_state` validates its target and can degrade observation channels
-  independently.
-- A dead Daemon causes the next request to fail at the Unix-socket boundary;
-  a manually replaced Daemon can serve later fresh tool connections.
+- `get_window_state` target validation and independent AX/pixel degradation.
+- Proxy and Daemon independent lifetimes.
+- Daemon dead before the next call → `Connection refused` without automatic
+  steady-state restart.
+- Manual Daemon replacement at the same socket path → later `list_apps`
+  succeeds through the same Proxy/session.
+
+## What remains unclear
+
+Daemon death during an active request is not tested. The replacement Daemon's
+handling of the old Proxy `session_id`, control registration, daemon-owned
+state, retry safety, and Agent/SDK recovery are still unknown.
 
 ## Detailed records
 
@@ -44,4 +77,5 @@ Agent
 
 ## Current focus
 
-Daemon restart mid-MCP-session → control/session-state recovery.
+Daemon restart mid-MCP-session → control/session-state recovery → issue
+discovery.

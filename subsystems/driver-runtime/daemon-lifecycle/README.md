@@ -7,7 +7,7 @@ MCP session remain alive, and what recovery is still unknown.
 
 ## Lifecycle break flowchart
 
-![Daemon lifecycle break flowchart](./daemon_lifecycle_break_flowchart.png)
+![Cua Driver daemon lifecycle break](./daemon_lifecycle_break_flowchart.png)
 
 ## Healthy baseline
 
@@ -15,7 +15,7 @@ MCP session remain alive, and what recovery is still unknown.
 - The data plane forwards each tool call over a fresh Unix connection.
 - The control plane is one persistent `session_begin(session_id)` connection.
 
-## Scenario 1 — Daemon already dead before next tool call
+## Scenario 1 — Daemon dead before next request [TESTED]
 
 **TESTED.** This is the tested case; Daemon death during an active request is
 not tested.
@@ -33,19 +33,19 @@ error. No automatic Daemon restart occurred.
 **Conclusion:** A dead Daemon breaks the Proxy → Daemon request boundary without
 automatically ending the MCP session or restarting the Daemon.
 
-## Scenario 2 — stale Unix socket pathname
+## Scenario 2 — stale socket pathname [TESTED / SOURCE-EXPLAINED]
 
 **TESTED / SOURCE-EXPLAINED.** The socket pathname remained after the Daemon
 died, but no Daemon was listening. Pathname existence is not Daemon liveness.
 A replacement Daemon can bind the same configured path after stale-path cleanup.
 
-## Scenario 3 — startup ownership vs steady-state supervision
+## Scenario 3 — startup ownership vs steady-state recovery [TESTED / SOURCE-EXPLAINED]
 
 **TESTED / SOURCE-EXPLAINED.** MCP startup can ensure that a Daemon exists
 before Proxy steady state begins. The running Proxy does not automatically
 restart a Daemon that later dies.
 
-## Scenario 4 — manual replacement Daemon
+## Scenario 4 — manual replacement Daemon [TESTED]
 
 **TESTED.** A replacement Daemon was started manually at the same socket path.
 The same Proxy and same MCP session remained alive; the next `list_apps`
@@ -108,7 +108,7 @@ actions, retry safety, or Agent/SDK behavior when the Daemon dies mid-request.
 - Startup auto-launch and steady-state restart are different responsibilities.
 - Data-plane recovery does not establish control/session-state recovery.
 
-## What remains unclear / next questions
+## What remains unclear
 
 - What does a replacement Daemon do with tool calls carrying the old Proxy
   `session_id` without a new persistent control registration?
