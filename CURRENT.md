@@ -8,6 +8,10 @@ PHASE 3 — ISSUE-DRIVEN LEARNING / CONTRIBUTION DISCOVERY
 
 Driver Runtime
 
+## Active investigation
+
+Daemon lifecycle / replacement-Daemon session and control-state recovery
+
 ## Completed enough
 
 - happy path
