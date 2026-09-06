@@ -11,6 +11,79 @@ reconstructing previous conversations manually.
 
 ---
 
+## Global Specialization Context
+
+This workspace is the active repository-level learning workspace inside the
+broader agent-infrastructure specialization.
+
+Global strategy lives in:
+
+`RitikaxG/agent-infrastructure-specialization`
+
+When available locally:
+
+`../agent-infrastructure-specialization/`
+
+The global workspace owns:
+
+- the six-month North Star
+- which repository/subsystem is active
+- rules for deciding which issues/PRs deserve serious time
+- cross-repository invariants
+- interview evidence
+- repository switching
+- promotion of repeated failures into reusable reliability tooling
+
+This Cua workspace owns the detailed repository investigation:
+
+- source paths
+- subsystem understanding
+- hypotheses
+- experiments
+- runtime evidence
+- failure reproductions
+- Cua-specific architecture
+- current engineering question
+
+### When the global workspace must be consulted
+
+Do not read every global file during every coding step.
+
+Consult the global specialization before:
+
+1. choosing a new Cua subsystem;
+2. committing significant time to a newly discovered issue or PR;
+3. deciding that an observed behavior should become a contribution;
+4. deciding that the current Cua subsystem is complete enough to move on;
+5. extracting a failure into reusable tooling;
+6. changing the broader specialization direction.
+
+For issue/PR selection, apply:
+
+`CONTRIBUTION_FILTER.md`
+
+For the active subsystem and stopping boundary, apply:
+
+`ROADMAP.md`
+
+For repository-switch decisions, apply:
+
+`WORKFLOW.md`
+
+After meaningful Cua work:
+
+- promote a genuinely reusable invariant to `PATTERN_LEDGER.md`;
+- promote defensible personal engineering work to `INTERVIEW_EVIDENCE.md`;
+- update the global `ROADMAP.md` only if the active/next subsystem changes.
+
+Do not treat planning research, other people's PRs, or untested hypotheses as
+personal evidence.
+
+The global specialization strategy takes precedence over local opportunities:
+an interesting Cua issue is not automatically worth pursuing.
+
+---
+
 ## 1. Source of Truth
 
 Each file has one responsibility.
@@ -571,4 +644,3 @@ I must be able to explain every important engineering decision.
 **Superpowers provides disciplined engineering workflows when needed.**
 
 **I own the engineering understanding and decisions.**
-
