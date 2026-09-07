@@ -217,6 +217,23 @@ It should read:
 - `cua-learning/CURRENT.md`
 - the relevant subsystem/investigation note when necessary
 
+When Codex is started from the sibling Cua checkout in a layout such as:
+
+```text
+open-source/
+  cua/
+  cua-learning/
+```
+
+the learning-workspace paths above are typically:
+
+- `../cua-learning/WORKFLOW.md`
+- `../cua-learning/CONVENTIONS.md`
+- `../cua-learning/CURRENT.md`
+- `../cua-learning/subsystems/...`
+
+Use the actual local layout rather than assuming a hardcoded absolute path.
+
 Every fresh Codex session must also ground itself in the current live Cua
 checkout before investigating. The learning workspace records what I currently
 understand; the Cua checkout is the implementation source of truth.
@@ -238,8 +255,9 @@ Codex may:
 - locate relevant code
 - trace a bounded runtime path
 - inspect tests
-- run focused experiments
 - gather runtime evidence
+- run focused experiments when the experiment-ownership rules below are
+  satisfied
 - help explain implementation details
 - later assist implementation/testing
 - maintain `cua-learning` during checkpoints
@@ -264,6 +282,86 @@ requires:
 It becomes useful after sufficient subsystem understanding exists.
 
 It is not a substitute for understanding the runtime path.
+
+---
+
+## Experiment execution ownership
+
+Choose who runs an experiment based on what must remain under observation and
+control. Do not default every reproduction to Codex merely because Codex can run
+shell commands.
+
+### Codex-first experiments
+
+Codex may run the first reproduction when either:
+
+- the experiment is deterministic and does not depend on preserving a specific
+  long-lived user-visible process/session/control relationship; or
+- Codex can create, own, and verify the entire clean baseline itself, including
+  every process/session/control relationship required by the hypothesis.
+
+Typical examples include focused unit/integration tests, temporary deterministic
+harnesses, parsing logs, bounded source-backed reproductions, or experiments in
+which Codex launches every relevant component from a known clean state.
+
+### Human + ChatGPT first reproduction
+
+For an important lifecycle/failure experiment, prefer the first reproduction as
+an interactive Human + ChatGPT run when correctness depends on preserving an
+exact live relationship while selectively breaking another component, for
+example:
+
+- keep this exact Proxy PID alive;
+- keep this exact MCP session alive;
+- preserve this exact `session_id`;
+- verify a live persistent control connection;
+- kill only the Daemon;
+- replace only one process/listener;
+- continue through the same surviving session;
+- observe process, socket, state, and response transitions step by step.
+
+In these cases Codex should normally provide the minimum source trace and help
+validate the experiment design first. The Human then performs the first
+important lifecycle break while ChatGPT helps verify each boundary and interpret
+the evidence.
+
+The goal is not manual work for its own sake. The goal is that I personally see
+and reason through the process/session/state transitions that the experiment is
+teaching.
+
+### Clean-baseline rule
+
+A pre-existing MCP route, Proxy process, socket, or apparently successful tool
+call is NOT sufficient proof of a valid lifecycle baseline.
+
+Before a lifecycle experiment, verify every relationship that the hypothesis
+requires. Depending on the experiment, this may include:
+
+- exact Proxy PID
+- exact Daemon PID
+- socket/listener identity
+- internally minted session identity
+- persistent control connection / `session_begin` relationship
+- relevant pre-break state
+- absence of a previous replacement/recovery event that already changed the
+  starting condition
+
+If the required precondition is already absent, the experiment is **NOT TESTED**.
+Do not continue and reinterpret the stale starting state as the requested
+one-variable reproduction.
+
+### Automation after understanding
+
+After the first important behavior is understood, Codex may automate or repeat
+it with a deterministic harness. At that stage automation is useful for:
+
+- repeatability
+- regression testing
+- collecting cleaner logs
+- varying one parameter at a time
+- turning a reproduced problem into a test before implementation
+
+Do not let automation replace the first-principles mental model.
 
 ---
 
@@ -326,16 +424,17 @@ For each new runtime hop:
 2. Ask for my hypothesis first when useful.
 3. Give Codex a bounded investigation question if repository evidence is
    required.
-4. Gather only enough evidence to test the hypothesis.
-5. Help me interpret the evidence.
-6. Identify the important boundary, executor, state owner, and result/error
+4. Decide experiment ownership using the rules above before running a break.
+5. Gather only enough evidence to test the hypothesis.
+6. Help me interpret the evidence.
+7. Identify the important boundary, executor, state owner, and result/error
    path when relevant.
-7. Ask WHY the component or boundary exists when architecturally important.
-8. Separate verified behavior from inference.
-9. Consider relevant failure behavior.
-10. Ask me to explain the resulting mental model back.
-11. Correct incorrect assumptions.
-12. Continue only when the current piece is sufficiently understood.
+8. Ask WHY the component or boundary exists when architecturally important.
+9. Separate verified behavior from inference.
+10. Consider relevant failure behavior.
+11. Ask me to explain the resulting mental model back.
+12. Correct incorrect assumptions.
+13. Continue only when the current piece is sufficiently understood.
 
 Preferred loop:
 
@@ -638,6 +737,8 @@ I must be able to explain every important engineering decision.
 **Latest explicit user decisions override older conventions/state.**
 
 **Codex gathers evidence.**
+
+**First important lifecycle reproductions are manual when exact live process/session ownership is the thing being learned, unless Codex can establish and verify the entire clean baseline itself.**
 
 **ChatGPT teaches and challenges.**
 
