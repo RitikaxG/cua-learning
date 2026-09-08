@@ -141,6 +141,24 @@ Avoid broad repository reconnaissance once a bounded engineering question exists
 
 ## 7. Diagrams
 
+Diagrams are part of the durable learning record, not disposable presentation artifacts.
+
+Preserve **every image the user deliberately creates or keeps because it materially helped understanding**, including:
+
+- hand-drawn mental models
+- intermediate reasoning diagrams
+- experiment flowcharts
+- corrected architecture diagrams
+- final recall/study maps
+
+Multiple images about the same subsystem are allowed when they capture different stages of understanding, different failure boundaries, or an important correction in the mental model. Do not delete an earlier useful image merely because a later polished image exists.
+
+If an older diagram contains an inference that later proved wrong, preserve it when it is useful to reconstruct the reasoning, but label the corresponding README text clearly as **superseded / corrected inference** so the image is not mistaken for the current contract.
+
+Store investigation-specific images beside that investigation README. Embed or index the images from the README so a future session can discover them without browsing filenames manually.
+
+Avoid only accidental byte-for-byte duplicates or decorative images that did not contribute to understanding.
+
 Use previously approved diagrams as references for clarity and investigation storytelling.
 
 A currently useful pattern is:
@@ -167,8 +185,6 @@ Prefer showing:
 - what fails
 - recovery/fallback when relevant
 - the unresolved boundary when useful
-
-Do not create duplicate diagrams for the same mental model unless there is a clear reason.
 
 ## 8. Codex / checkpoint prompts
 
