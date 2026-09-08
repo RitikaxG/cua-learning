@@ -51,11 +51,32 @@ capture behavior is parked: macOS 13.1 is below the documented support baseline.
 
 Proxy and Daemon are separate failure domains. A socket pathname can remain
 after Daemon death without a listener. Startup can ensure a Daemon exists, but
-the running Proxy did not automatically restart a later-dead Daemon. Fresh
-per-tool Unix connections let the same Proxy/session reach a manually replaced
-Daemon at the same path. This is data-plane recovery, not proven control/session
-recovery: the old persistent `session_begin(session_id)` connection and old
-Daemon memory are lost, and no new control registration is automatic.
+the running Proxy did not automatically restart a later-dead Daemon.
+
+Normal tool calls use fresh Unix connections, so the same surviving Proxy can
+reach a manually restored replacement Daemon at the same socket path.
+
+The Proxy owns **logical session identity continuity**; the Daemon owns
+**process-local runtime/session state**. When the old Daemon dies, its memory and
+persistent Proxy ↔ Daemon control connection disappear even though the Proxy
+keeps the same `session_id`.
+
+A replacement Daemon can lazily/implicitly admit that old, non-ended
+`session_id`, create a fresh lifecycle record/activity state, and allow fresh
+session-owned state to be created. This is **identity reuse + fresh state
+creation**, not restoration of old Daemon memory.
+
+The persistent `session_begin(session_id)` control connection is not a universal
+admission gate for every session-owned action. Its important lifecycle role is
+fast, deterministic liveness cleanup: if a healthy Proxy dies, control EOF drives
+session-end cleanup. If the control connection is lost during Daemon replacement
+and is not restored, the replacement-created session still participates in the
+normal idle lifecycle path: default ~300-second idle TTL, maintenance sweep
+about every 30 seconds, then session-end hooks.
+
+Therefore Proxy-process liveness and replacement-Daemon session liveness can
+diverge: the Proxy can remain alive while an inactive old S1 has already been
+expired/tombstoned by the replacement Daemon.
 
 ## Experiments completed
 
@@ -66,15 +87,33 @@ Daemon memory are lost, and no new control registration is automatic.
 | Stale window | Valid PID, stale/nonexistent window | `window_id_not_found` before observation | Window scope is preflight validation | Complete |
 | AX unresolved | Valid surface without exact AX mapping | Empty AX tree; screenshot can be valid | Truthful independent observation channels | Complete |
 | Intermittent capture | Repeated same-window observation | `px_capture_unavailable`; later success | Candidate only; parked | Parked |
-| Daemon dead before next request | Only Daemon killed before `list_apps` | `Connection refused`; Proxy/session survived | No steady-state restart; pathname is not liveness | Complete |
+| Daemon dead before next request | Only Daemon killed before `list_apps` | `Connection refused`; Proxy/session identity survived | No steady-state restart; pathname is not liveness | Complete |
 | Manual replacement | Replacement bound same path | Same Proxy/session `list_apps` succeeded | Fresh data connections reach replacement | Complete |
+| Old S1 on replacement | Replacement never received new `session_begin(S1)` | `list_apps(S1)` and `set_agent_cursor_enabled(S1)` both succeeded | Old identity can be lazily admitted; fresh Daemon-side state is created | Complete |
+| Idle cleanup without control reconnect | Same Proxy and same replacement Daemon stayed alive across inactivity | Later `get_agent_cursor_state(S1)` said session ended and rejected call | Control EOF is not the only cleanup path; inactive replacement-created S1 can expire independently | Complete enough |
 
 ## Final current subsystem model
 
-The runtime has a durable happy path, explicit target/degraded-observation
-behavior, and distinct process, transport, and session boundaries. Data-plane
-transport recovery is verified; control-session and daemon-owned-state recovery
-remain unresolved.
+The runtime now has a durable happy path, explicit target/degraded-observation
+behavior, and a substantially understood **between-request Daemon lifecycle**:
+
+```text
+Proxy keeps logical session identity
+        ↓
+old Daemon dies → old process-local state/control connection disappear
+        ↓
+replacement Daemon can be reached by fresh per-tool connection
+        ↓
+old S1 can be lazily admitted
+        ↓
+fresh Daemon-side lifecycle/state is created under S1
+        ↓
+no control reconnect → no immediate Proxy-liveness cleanup
+        ↓
+idle lifecycle/reaper provides fallback cleanup
+```
+
+This slice is understood well enough to move to the next reliability boundary.
 
 ## What is GREEN
 
@@ -84,20 +123,32 @@ remain unresolved.
 - startup auto-launch vs no steady-state restart
 - tested `Connection refused` and manual replacement recovery
 - data plane vs control plane
+- Proxy logical identity vs Daemon process-local state ownership
+- old-session lazy admission on a replacement Daemon
+- identity continuity vs state continuity
+- immediate control-EOF cleanup vs idle-TTL fallback cleanup
+- Proxy liveness can diverge from replacement-Daemon session liveness
 
 ## What is still YELLOW / unknown
 
-- Daemon death during an active request
-- old Proxy `session_id` at a replacement Daemon
-- control reconnection and daemon-owned cursor/config/recording state
-- recovery versus intentional invalidation
-- retry safety and Agent/SDK recovery
+- Daemon death **during an active request**
+- partial execution / response-loss ambiguity
+- retry safety for mutating operations
+- whether current calls have useful idempotency/deduplication guarantees
+- all session-owned resource families under replacement/recovery (cursor/config
+  cleanup path is traced; not every resource has been runtime-tested)
 
 ## Current issue-driven thread
 
-Daemon restart mid-MCP-session → control/session-state recovery → issue
-discovery. Establish the surviving-session contract before selecting a
-contribution candidate.
+The active thread has moved from replacement-session cleanup to the next
+reliability boundary:
+
+> **Daemon disappears while a tool call is already executing. What does the
+> Proxy/caller know about whether the action happened, and what retries are
+> actually safe?**
+
+The goal is to establish execution/acknowledgement boundaries before deciding
+whether there is a contribution candidate.
 
 ## Detailed notes
 
@@ -105,7 +156,16 @@ contribution candidate.
 - [Failure experiments](./failures/README.md)
 - [Daemon lifecycle investigation](./daemon-lifecycle/README.md)
 
+The daemon-lifecycle folder deliberately retains multiple learning images: the
+initial lifecycle-break flowchart and the later consolidated session-recovery
+study map. Investigation diagrams are durable learning evidence, not disposable
+presentation artifacts.
+
 ## Deferred
 
-Do not resume broad reconnaissance or invent failures. Inspect only the
-source/design evidence needed for the old-session-id/control-session question.
+Do not resume broad repository reconnaissance or repeatedly vary the completed
+between-request replacement experiment.
+
+Next inspect only the active-request request/dispatch/side-effect/response path,
+establish the current failure contract, ask for a prediction, and then design one
+safe controlled mid-request lifecycle reproduction.
