@@ -156,10 +156,9 @@ whether there is a contribution candidate.
 - [Failure experiments](./failures/README.md)
 - [Daemon lifecycle investigation](./daemon-lifecycle/README.md)
 
-The daemon-lifecycle folder deliberately retains multiple learning images: the
-initial lifecycle-break flowchart and the later consolidated session-recovery
-study map. Investigation diagrams are durable learning evidence, not disposable
-presentation artifacts.
+The daemon-lifecycle investigation keeps one canonical session-recovery study
+map that summarizes the completed between-request lifecycle conclusions. Scratch
+and intermediate reasoning diagrams are not retained by default.
 
 ## Deferred
 
