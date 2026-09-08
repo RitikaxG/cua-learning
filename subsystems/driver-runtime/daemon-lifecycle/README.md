@@ -14,17 +14,12 @@ This investigation now has one completed slice and one next boundary:
 2. **Next boundary:** Daemon dies **during an active request**, where the caller
    may not know whether a side effect happened before the response was lost.
 
-## Visual learning record
+## Canonical study map
 
-Keep all meaningful diagrams for this investigation. Earlier diagrams may show
-an inference that was later corrected; the README text below is the source of
-truth for the current model.
-
-### Initial lifecycle-break flow
-
-![Cua Driver daemon lifecycle break](./daemon_lifecycle_break_flowchart.png)
-
-### Consolidated daemon lifecycle / session recovery study map
+This is the final recall image for the completed between-request
+Daemon-replacement/session-recovery slice. It captures the major observations,
+corrected inferences, ownership boundaries, and cleanup paths established after
+the experiments and source trace.
 
 ![Cua Driver daemon lifecycle and session recovery](./daemon_lifecycle_session_recovery.png)
 
