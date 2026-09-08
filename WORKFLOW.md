@@ -33,6 +33,7 @@ The global workspace owns:
 - interview evidence
 - repository switching
 - promotion of repeated failures into reusable reliability tooling
+- global Codex orchestration rules in `AGENTS.md`
 
 This Cua workspace owns the detailed repository investigation:
 
@@ -43,7 +44,7 @@ This Cua workspace owns the detailed repository investigation:
 - runtime evidence
 - failure reproductions
 - Cua-specific architecture
-- current engineering question
+- exact current engineering question
 
 ### When the global workspace must be consulted
 
@@ -62,13 +63,17 @@ For issue/PR selection, apply:
 
 `CONTRIBUTION_FILTER.md`
 
-For the active subsystem and stopping boundary, apply:
+For the active subsystem and global stopping boundary, apply:
 
 `ROADMAP.md`
 
 For repository-switch decisions, apply:
 
 `WORKFLOW.md`
+
+For Codex orchestration and global promotion triggers, apply:
+
+`AGENTS.md`
 
 After meaningful Cua work:
 
@@ -186,7 +191,7 @@ about the system.
 
 ## ChatGPT
 
-ChatGPT is my:
+ChatGPT can be my:
 
 - technical teacher
 - architecture reasoning partner
@@ -194,48 +199,41 @@ ChatGPT is my:
 - whiteboard reviewer
 - engineering reviewer
 
-ChatGPT is not the primary repository investigator when Codex can inspect the
-local Cua repository.
+When ChatGPT is used separately from Codex, it does not need to be the primary
+repository investigator when Codex can inspect the local Cua repository.
 
-Codex gathers repository/runtime evidence.
-
-I form the engineering model.
-
-ChatGPT helps me understand, challenge, test, and refine that model.
+The role boundary is about **human understanding vs AI evidence gathering**, not
+about forcing every activity into a particular product surface.
 
 ---
 
 ## Codex
 
-Codex is the repository-aware investigator.
+Codex is the repository-aware investigator **and may also orchestrate the
+learning/engineering workflow**.
 
 It should read:
 
-- Cua's `AGENTS.override.md`
-- `cua-learning/WORKFLOW.md`
-- `cua-learning/CONVENTIONS.md`
-- `cua-learning/CURRENT.md`
-- the relevant subsystem/investigation note when necessary
+- the global specialization `AGENTS.md` when available;
+- Cua's applicable repository instructions, including `AGENTS.override.md`;
+- `cua-learning/WORKFLOW.md`;
+- `cua-learning/CONVENTIONS.md`;
+- `cua-learning/CURRENT.md`;
+- the relevant subsystem/investigation note when necessary.
 
-When Codex is started from the sibling Cua checkout in a layout such as:
+When Codex is started from a layout such as:
 
 ```text
 open-source/
+  agent-infrastructure-specialization/
   cua/
   cua-learning/
 ```
 
-the learning-workspace paths above are typically:
+use the actual local layout rather than assuming a hardcoded absolute path.
 
-- `../cua-learning/WORKFLOW.md`
-- `../cua-learning/CONVENTIONS.md`
-- `../cua-learning/CURRENT.md`
-- `../cua-learning/subsystems/...`
-
-Use the actual local layout rather than assuming a hardcoded absolute path.
-
-Every fresh Codex session must also ground itself in the current live Cua
-checkout before investigating. The learning workspace records what I currently
+Every fresh Codex session must ground itself in the current live Cua checkout
+before investigating. The learning workspace records what I currently
 understand; the Cua checkout is the implementation source of truth.
 
 At the beginning of a fresh Codex investigation:
@@ -252,18 +250,33 @@ At the beginning of a fresh Codex investigation:
 
 Codex may:
 
-- locate relevant code
-- trace a bounded runtime path
-- inspect tests
-- gather runtime evidence
+- locate relevant code;
+- trace a bounded runtime path;
+- inspect tests;
+- gather runtime evidence;
 - run focused experiments when the experiment-ownership rules below are
-  satisfied
-- help explain implementation details
-- later assist implementation/testing
-- maintain `cua-learning` during checkpoints
+  satisfied;
+- point me to the minimum files/functions/lines I should personally inspect;
+- teach only the language/syntax/concepts required for the current code path;
+- cross-question my mental model and ask for explain-back;
+- decide when further source reading has diminishing value;
+- decide routine transitions between understanding, source trace, experiment,
+  checkpoint, issue discovery, design, implementation, verification, and
+  contribution work;
+- later assist implementation/testing;
+- autonomously maintain `cua-learning` at natural checkpoints;
+- consult/promote to the global specialization when the trigger rules require
+  it.
 
 Codex should investigate the current engineering question rather than broadly
 exploring the repository.
+
+Do not ask me to decide routine workflow transitions that are already implied by
+`CURRENT.md`, the evidence, and these instructions.
+
+The human still owns the actual understanding, important predictions,
+architecture decisions, contribution commitment, and approval of meaningful
+implementation direction.
 
 ---
 
@@ -279,7 +292,10 @@ requires:
 - verification
 - code review
 
-It becomes useful after sufficient subsystem understanding exists.
+Codex should invoke the appropriate workflow when the investigation reaches that
+phase rather than requiring me to remember which process to use.
+
+Superpowers becomes useful after sufficient subsystem understanding exists.
 
 It is not a substitute for understanding the runtime path.
 
@@ -304,12 +320,11 @@ Typical examples include focused unit/integration tests, temporary deterministic
 harnesses, parsing logs, bounded source-backed reproductions, or experiments in
 which Codex launches every relevant component from a known clean state.
 
-### Human + ChatGPT first reproduction
+### Human + AI first reproduction
 
 For an important lifecycle/failure experiment, prefer the first reproduction as
-an interactive Human + ChatGPT run when correctness depends on preserving an
-exact live relationship while selectively breaking another component, for
-example:
+an interactive Human + AI run when correctness depends on preserving an exact
+live relationship while selectively breaking another component, for example:
 
 - keep this exact Proxy PID alive;
 - keep this exact MCP session alive;
@@ -321,9 +336,15 @@ example:
 - observe process, socket, state, and response transitions step by step.
 
 In these cases Codex should normally provide the minimum source trace and help
-validate the experiment design first. The Human then performs the first
-important lifecycle break while ChatGPT helps verify each boundary and interpret
-the evidence.
+validate the experiment design first. If the human is running the experiment
+from Terminal, Codex should:
+
+1. provide one command at a time;
+2. explain what the command does and why it is needed;
+3. inspect the returned output before advancing;
+4. stop if the clean baseline is not verified;
+5. ask for my prediction before the important break;
+6. help interpret each process/session/state transition afterward.
 
 The goal is not manual work for its own sake. The goal is that I personally see
 and reason through the process/session/state transitions that the experiment is
@@ -397,6 +418,13 @@ checkout before tracing, testing, breaking, or proposing changes:
 4. Verify that the current implementation still matches the recorded mental
    model before relying on it.
 
+Codex should then state briefly:
+
+- where we currently are;
+- what is already solid;
+- what remains unknown;
+- what it is doing next and why.
+
 Do NOT restart previous architecture merely because the conversation is new.
 
 Do NOT make me explain previous sessions again if the information already
@@ -422,8 +450,7 @@ For each new runtime hop:
 
 1. Establish one concrete engineering question.
 2. Ask for my hypothesis first when useful.
-3. Give Codex a bounded investigation question if repository evidence is
-   required.
+3. Trace a bounded repository path if implementation evidence is required.
 4. Decide experiment ownership using the rules above before running a break.
 5. Gather only enough evidence to test the hypothesis.
 6. Help me interpret the evidence.
@@ -479,7 +506,11 @@ Always separate:
 
 ### OBSERVED
 
-Supported directly by code, tests, runtime evidence, or documentation.
+Supported directly by runtime evidence.
+
+### SOURCE-VERIFIED
+
+Supported directly by current code, tests, or authoritative design history.
 
 ### INFERENCE
 
@@ -490,6 +521,17 @@ Architectural reasoning that has not yet been directly verified.
 Not yet established.
 
 Never silently convert inference into fact.
+
+### Stop-reading rule
+
+When further source reading would add implementation trivia rather than change
+the engineering model, stop.
+
+If I can independently explain the relevant flow, boundary, state owner, failure
+path, and architectural purpose, state that the slice is GREEN enough and move
+to the next engineering phase.
+
+Do not let repository exploration become passive learning.
 
 ---
 
@@ -516,8 +558,12 @@ Avoid prerequisite rabbit holes.
 
 Do not study an entire technology merely because one function uses it.
 
+If I do not know the language or syntax of a relevant file, explain only what is
+required to reason about the current function/path, then return to the
+engineering question.
+
 If an external resource would materially improve understanding of the CURRENT
-problem, ChatGPT may recommend one excellent targeted resource.
+problem, recommend at most one excellent targeted resource.
 
 Do not create a second curriculum or large reading list.
 
@@ -560,6 +606,9 @@ In addition to GREEN, I can independently reason about:
 
 AI finding more code does not increase this level.
 
+Codex should proactively recognize when the current slice has reached GREEN
+enough to move forward instead of continuing source exploration indefinitely.
+
 ---
 
 # 8. Whiteboarding
@@ -574,16 +623,21 @@ I should create diagrams when they materially help with:
 - retries
 - partial failures
 
-I draw the mental model.
+I form the mental model.
 
-ChatGPT validates and challenges it rather than replacing it with a polished
-AI-generated architecture.
+ChatGPT or Codex may validate, challenge, and help organize it rather than
+silently replacing it with unverified architecture.
 
 Codex may organize/link diagrams during checkpoints, but should not silently
 add unverified architecture to them.
 
 Diagram/document presentation conventions live in `CONVENTIONS.md` and may
 evolve as better patterns emerge.
+
+When a completed investigation slice has stable major conclusions and a durable
+recall diagram would materially help, Codex should proactively point that out.
+The checkpoint itself must not be blocked merely because polished image
+generation is unavailable.
 
 ---
 
@@ -610,6 +664,9 @@ Before generating the prompt:
 Do not generate checkpoint/update prompts from conversation memory alone when
 the durable workspace exists.
 
+A fresh Codex session should normally need only a short resume instruction
+because the durable files already carry the detailed state.
+
 ---
 
 # 10. Checkpoints
@@ -622,42 +679,51 @@ A checkpoint is NOT a new investigation.
 Create one when:
 
 - a meaningful runtime section has been understood;
+- an important inference is corrected;
+- an experiment materially changes the mental model;
+- a bounded engineering question is resolved;
 - the stopping boundary changes significantly;
 - the understanding level changes;
 - important architecture/failure reasoning has been established;
+- the work is about to move into issue/design/implementation mode;
+- enough durable progress has accumulated that losing context would be costly;
 - or the session is ending after meaningful progress.
 
-At a checkpoint, ChatGPT produces a concise:
+### Autonomous Codex checkpointing
 
-## CHECKPOINT HANDOFF
+Codex may recognize and write a checkpoint automatically. I should not need to
+ask it to update stale learning files as routine ceremony.
 
-containing only:
+A separate ChatGPT `CHECKPOINT HANDOFF` is optional, not required.
 
-- what I personally established
-- important architectural conclusions I personally reasoned through
-- corrections to my previous mental model
-- important experiments/evidence
-- current understanding level
-- exact stopping boundary
-- still unknown
-- next engineering question
-- diagrams created, if any
+If ChatGPT has produced a useful handoff, Codex may use it. Otherwise Codex
+should derive the checkpoint from:
 
-Do not turn the handoff into a conversation transcript.
+- the current durable workspace;
+- source/runtime evidence gathered in the session;
+- my demonstrated understanding and explicit conclusions;
+- the latest explicit decisions.
 
-Codex then uses the handoff to update the learning workspace.
+At a checkpoint, Codex should:
 
-Codex should:
-
-1. update the relevant subsystem README with durable detailed understanding;
-2. update the associated experiment folder when new evidence or reproduction
-   material exists;
+1. update the relevant subsystem/investigation README with durable detailed
+   understanding;
+2. update an associated experiment folder only when real evidence/reproduction
+   material warrants it;
 3. rewrite `CURRENT.md` to represent the new live state;
-4. preserve/link only relevant final diagrams;
-5. show a concise diff for review.
+4. preserve/link only durable diagrams according to `CONVENTIONS.md`;
+5. consult the global specialization and promote only what has actually been
+   earned:
+   - reusable invariant → `PATTERN_LEDGER.md`;
+   - defensible personal engineering work → `INTERVIEW_EVIDENCE.md`;
+   - active/next subsystem change → `ROADMAP.md`;
+   - improved selection rule → `CONTRIBUTION_FILTER.md`;
+6. show a concise checkpoint summary/diff.
 
 After the checkpoint, `CURRENT.md` must be sufficient for a fresh session to
 know exactly where to resume.
+
+Do not turn checkpoint maintenance into a separate learning activity.
 
 ---
 
@@ -706,13 +772,25 @@ Before fixing a real issue, establish:
 5. relevant state ownership
 6. failure boundary
 7. plausible root cause
-8. alternatives/tradeoffs
-9. test strategy
+8. invariant
+9. alternatives/tradeoffs
+10. test strategy
 
 Only then move toward implementation.
 
-At that point, use the appropriate Superpowers workflow for debugging, design,
-planning, TDD, verification, or review.
+Before seriously investing in a discovered issue/PR, consult the global
+`ROADMAP.md` and `CONTRIBUTION_FILTER.md` so the six-month plan does not split
+into unrelated workstreams.
+
+At the appropriate point, use the relevant Superpowers workflow for debugging,
+design, planning, TDD, verification, or review.
+
+For a non-trivial solution, keep HLD and LLD connected:
+
+- HLD: components, responsibilities, lifecycle, invariant, failure/recovery
+  behavior;
+- LLD: modules, types, functions, state transitions, error paths, and tests that
+  implement the HLD.
 
 I must be able to explain every important engineering decision.
 
@@ -724,23 +802,25 @@ I must be able to explain every important engineering decision.
 
 **The learning workspace is durable.**
 
-**WORKFLOW.md defines the investigation protocol.**
+**WORKFLOW.md defines the Cua investigation protocol.**
 
 **CONVENTIONS.md defines current presentation/documentation defaults.**
 
-**CURRENT.md tells us where to resume.**
+**CURRENT.md tells us exactly where to resume.**
 
 **Subsystem notes preserve detailed understanding.**
 
 **The current Cua checkout is the implementation source of truth.**
 
+**The global specialization keeps Cua work connected to the six-month strategy.**
+
 **Latest explicit user decisions override older conventions/state.**
 
-**Codex gathers evidence.**
+**Codex gathers evidence and may orchestrate routine workflow transitions.**
 
 **First important lifecycle reproductions are manual when exact live process/session ownership is the thing being learned, unless Codex can establish and verify the entire clean baseline itself.**
 
-**ChatGPT teaches and challenges.**
+**ChatGPT or Codex may teach/challenge; the human owns the actual engineering understanding.**
 
 **Superpowers provides disciplined engineering workflows when needed.**
 
