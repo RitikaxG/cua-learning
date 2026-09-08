@@ -6,7 +6,15 @@ The Driver Runtime takes a computer-tool request from an Agent/MCP client and
 executes it through the long-running Cua Driver daemon. This record captures
 the architecture, experiments, failure boundaries, and current issue thread.
 
-## Architecture whiteboard
+## Current subsystem mind map
+
+![Cua Driver Runtime current mental model](./driver_runtime_mind_map.png)
+
+This is the current retention-oriented map: request path, ownership, healthy
+session lifecycle, replacement behavior, active-request death, and the two
+central invariants.
+
+## Original architecture whiteboard
 
 ![Final Cua Driver architecture whiteboard](./architecture.png)
 
@@ -91,6 +99,7 @@ expired/tombstoned by the replacement Daemon.
 | Manual replacement | Replacement bound same path | Same Proxy/session `list_apps` succeeded | Fresh data connections reach replacement | Complete |
 | Old S1 on replacement | Replacement never received new `session_begin(S1)` | `list_apps(S1)` and `set_agent_cursor_enabled(S1)` both succeeded | Old identity can be lazily admitted; fresh Daemon-side state is created | Complete |
 | Idle cleanup without control reconnect | Same Proxy and same replacement Daemon stayed alive across inactivity | Later `get_agent_cursor_state(S1)` said session ended and rejected call | Control EOF is not the only cleanup path; inactive replacement-created S1 can expire independently | Complete enough |
+| Daemon death during active request | Effect-conditioned `SIGKILL` during delayed exact-window Terminal `type_text` | Terminal retained strict prefix `CUA_MIDREQ2_`; Proxy returned `daemon closed connection without response` | A post-connect transport error can coexist with partial execution; no automatic replay resolves it | Complete enough |
 
 ## Final current subsystem model
 
@@ -113,7 +122,9 @@ no control reconnect → no immediate Proxy-liveness cleanup
 idle lifecycle/reaper provides fallback cleanup
 ```
 
-This slice is understood well enough to move to the next reliability boundary.
+The between-request and active-request lifecycle slices are understood well
+enough. Contribution legitimacy and maintainer direction remain open before any
+error-contract design.
 
 ## What is GREEN
 
@@ -128,44 +139,50 @@ This slice is understood well enough to move to the next reliability boundary.
 - identity continuity vs state continuity
 - immediate control-EOF cleanup vs idle-TTL fallback cleanup
 - Proxy liveness can diverge from replacement-Daemon session liveness
+- active-request execution/acknowledgement boundary
+- partial external effect with response-less transport failure
+- response-path knowledge vs independently observed external effect
 
 ## What is still YELLOW / unknown
 
-- Daemon death **during an active request**
-- partial execution / response-loss ambiguity
-- retry safety for mutating operations
+- safe retry policy/design for mutating operations
+- maintainer-aligned error contract for pre-dispatch vs outcome-unknown failure
 - whether current calls have useful idempotency/deduplication guarantees
 - all session-owned resource families under replacement/recovery (cursor/config
   cleanup path is traced; not every resource has been runtime-tested)
 
 ## Current issue-driven thread
 
-The active thread has moved from replacement-session cleanup to the next
-reliability boundary:
+The active thread has moved from runtime reproduction and explain-back to the
+contribution-commitment gate:
 
-> **Daemon disappears while a tool call is already executing. What does the
-> Proxy/caller know about whether the action happened, and what retries are
-> actually safe?**
+> **Should the common Proxy/daemon client distinguish pre-dispatch transport
+> failure from post-write execution-outcome-unknown failure, without adding
+> automatic replay or exactly-once machinery?**
 
-The goal is to establish execution/acknowledgement boundaries before deciding
-whether there is a contribution candidate.
+The source/runtime boundary and human mental model are established. Bounded
+issue/PR review found no direct deduplication/replay work; the candidate is now a
+cross-platform client-visible error-contract improvement that requires human
+commitment and maintainer alignment before design.
 
 ## Detailed notes
 
 - [Happy path](./happy-path/README.md)
 - [Failure experiments](./failures/README.md)
-- [Daemon lifecycle investigation](./daemon-lifecycle/README.md)
+- [Daemon lifecycle index](./daemon-lifecycle/README.md)
+- [Between-request replacement and cleanup](./daemon-lifecycle/between-requests/README.md)
+- [Active-request death and uncertain outcome](./daemon-lifecycle/active-request-death/README.md)
 
-The daemon-lifecycle investigation deliberately keeps two durable diagrams:
-`daemon_lifecycle_break_flowchart.png` for the original failure sequence and
-`daemon_lifecycle_session_recovery.png` for the consolidated recovery/cleanup
-model. Scratch and intermediate reasoning diagrams are not retained by default.
+The current subsystem mind map is retained at this level. The daemon-lifecycle
+investigation keeps two distinct detailed visuals: session recovery between
+requests and active-request uncertain execution. Scratch and superseded diagrams
+are not retained in the live tree by default; Git history preserves them.
 
 ## Deferred
 
 Do not resume broad repository reconnaissance or repeatedly vary the completed
 between-request replacement experiment.
 
-Next inspect only the active-request request/dispatch/side-effect/response path,
-establish the current failure contract, ask for a prediction, and then design one
-safe controlled mid-request lifecycle reproduction.
+Do not repeat the marker or broaden the source trace. Next decide whether to
+commit serious contribution time; if approved, prepare a maintainer-facing
+problem statement before designing or coding.

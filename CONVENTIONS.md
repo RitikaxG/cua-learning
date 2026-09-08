@@ -145,6 +145,21 @@ The repository will grow over months, so diagrams should be curated rather than 
 
 Prefer storing the **final / canonical recall image** for a completed investigation slice: the image that captures the major observed behavior, corrected mental model, important boundaries, and final conclusions after the experiment/source trace.
 
+Visual checkpointing is proactive but approval-gated:
+
+- when a completed slice has stable major conclusions, Codex must decide whether
+  a retention-oriented diagram or mind map would materially help;
+- if yes, Codex must automatically generate/update a draft and show it at the
+  checkpoint, then ask for approval before adding, copying, or linking it into
+  the durable repository;
+- after approval to add it, inspect factual claims and rendered text, store it
+  beside its owning README, and embed it;
+- when multiple completed slices now form a stable subsystem architecture,
+  propose a subsystem-level mind map in addition to any genuinely distinct
+  experiment/failure visual;
+- if the user declines, leave the preview outside the durable repository and do
+  not add it silently.
+
 Do **not** store every intermediate whiteboard, scratch diagram, hypothesis sketch, or temporary reasoning image by default. Those are useful while learning but should remain working artifacts unless the user explicitly decides one has lasting value.
 
 A second diagram is justified only when it adds a genuinely different, durable view that the canonical image does not cover—for example a unique failure path or architecture view that remains important after the investigation is settled.
@@ -154,6 +169,27 @@ If a later final diagram subsumes an older one, prefer the final diagram in the 
 Store investigation-specific canonical images beside that investigation README and embed them from the README so a future session can discover the final mental model immediately.
 
 Use previously approved diagrams as references for clarity and investigation storytelling.
+
+### Approved retention-map reference
+
+`subsystems/driver-runtime/daemon-lifecycle/daemon_lifecycle_session_recovery.png`
+is the preferred reference for future subsystem/investigation mind maps. The
+user explicitly approved it as especially concise and to the point.
+
+Reuse its communication qualities rather than copying its exact layout:
+
+- numbered sections with one responsibility each;
+- architecture and ownership first;
+- healthy path contrasted with failure/recovery behavior;
+- observed experiment results embedded beside the relevant model;
+- a compact major-conclusions strip for fast recall;
+- enough detail to reconstruct the mental model without reproducing the full
+  investigation README;
+- clear tested/source-verified/unknown distinctions;
+- high information density while remaining readable at ordinary desktop zoom.
+
+Prefer this study-map style over decorative mind maps with vague branches,
+repeated prose, or excessive empty space.
 
 A currently useful pattern is:
 
@@ -181,6 +217,45 @@ Prefer showing:
 - corrected inference / final conclusion when relevant
 - the unresolved boundary when useful
 
+Before accepting a generated visual, verify:
+
+- every status label still matches TESTED / SOURCE-VERIFIED / INFERENCE /
+  UNKNOWN;
+- no obsolete “not tested” or open-question label survives after the boundary
+  was resolved;
+- process, session, state-ownership, retry, and recovery claims match the owning
+  README;
+- exact identifiers and quoted runtime results are spelled correctly;
+- the image remains legible at ordinary desktop zoom.
+
+## 7.1 Documentation growth and restructuring
+
+Codex should audit structure at natural checkpoints instead of waiting for the
+user to notice runaway growth.
+
+Propose restructuring when a file has rapidly grown, roughly doubled between
+stable checkpoints, accumulated multiple completed slices, duplicated another
+file's responsibility, or become difficult to resume from. Treat line counts as
+signals rather than rigid limits; responsibility and retrieval quality decide.
+
+Recommended steady-state shapes:
+
+- `CURRENT.md`: compact live resume state, usually about 80–150 lines;
+- subsystem README: canonical architecture/conclusion map plus links, usually
+  about 150–250 lines;
+- experiment/investigation README: one durable engineering slice, usually under
+  about 400–500 lines.
+
+When restructuring is warranted:
+
+1. propose the minimal slice-based layout and explain what moves where;
+2. ask the user to approve before changing paths, splitting files, or removing
+   superseded artifacts;
+3. after approval, preserve all meaningful experiments, conclusions, corrected
+   inferences, evidence classifications, visuals, and stopping boundaries;
+4. update every link and `CURRENT.md` in the same checkpoint;
+5. do not create a file per conversation or per small question.
+
 ## 8. Codex / checkpoint prompts
 
 When the user asks for a Codex prompt, update prompt, checkpoint prompt, or handoff prompt:
@@ -197,7 +272,58 @@ Before generating such a prompt, follow the prompt-generation procedure defined 
 
 The current conversation's latest explicit decisions override older repo text and older conventions.
 
-## 9. Resumability
+## 9. Day Start Brief
+
+Use this compact user-facing structure at the beginning of a fresh Codex task or
+an explicitly declared new day:
+
+```text
+DAY START BRIEF
+
+Current Position
+- repository / subsystem / engineering question
+- understanding level, GREEN areas, unresolved boundary
+
+Focused Time Budget
+- default 5–6 focused hours, excluding breaks, or explicit override
+
+Today's Substantial Output
+- primary engineering result
+- durable supporting artifact
+- monthly / six-month goal advanced
+
+Experiment / Evidence Plan
+- hypothesis or evidence question
+- activity, expected observation, ownership
+- or: no runtime experiment today — <reason>
+
+Major Checkpoints
+- approximate focused time → outcome
+- required human gates
+
+Scope
+- minimum relevant components/files
+- explicit exclusions
+
+Stopping Boundary
+- definition of enough for today
+- work that must not begin yet
+
+First Action
+- exact bounded next step
+```
+
+Keep the brief concrete and adapted to the current workflow phase. Do not paste
+generic ceremony. The 5–6 hours are a planning budget, not a claim about elapsed
+or focused time. Major checkpoints are outcome-based, and documentation/visuals
+support rather than replace the day's engineering result.
+
+When the current phase is issue discovery or design, `Experiment / Evidence
+Plan` may explicitly state that no runtime experiment is planned and name the
+source, issue, design, test, or maintainer artifact that will convert existing
+evidence instead.
+
+## 10. Resumability
 
 A fresh session should normally be able to resume by reading:
 
@@ -208,7 +334,7 @@ A fresh session should normally be able to resume by reading:
 
 The fresh session should not restart broad exploration if `CURRENT.md` already contains a bounded engineering question.
 
-## 10. Keep the system evolvable
+## 11. Keep the system evolvable
 
 These conventions should change as the learning process improves.
 

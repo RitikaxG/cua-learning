@@ -165,6 +165,45 @@ Prefer updating the subsystem README after understanding changes. Runtime
 traces are evidence, not durable learning docs. Preserve only final useful
 diagrams, not intermediate whiteboards.
 
+### Documentation growth / restructuring gate
+
+At every meaningful checkpoint, Codex should audit whether the durable files
+still match these responsibilities. Rapid growth is a signal to inspect, not a
+reason to keep appending indefinitely.
+
+Trigger a restructuring proposal when one or more are true:
+
+- `CURRENT.md` contains detailed architecture, source traces, or experiment
+  history instead of primarily representing NOW;
+- one investigation README contains multiple completed engineering slices that
+  are difficult to retrieve independently;
+- a durable file roughly doubles between stable checkpoints;
+- navigation requires reading hundreds of unrelated lines before reaching the
+  active boundary;
+- repeated conclusions/evidence appear in three or more files without a clear
+  summary-versus-detail relationship.
+
+Useful size heuristics, not hard limits:
+
+- `CURRENT.md`: normally about 80–150 lines;
+- subsystem README: normally about 150–250 lines;
+- one investigation/experiment README: normally under about 400–500 lines.
+
+When the trigger fires, Codex must:
+
+1. identify the responsibility overlap and measured growth;
+2. propose the smallest slice-based restructuring that improves retrieval;
+3. preserve experiments, conclusions, corrected inferences, evidence labels,
+   and stopping boundaries;
+4. ask the user for approval before moving, splitting, deleting, or renaming
+   durable artifacts;
+5. after approval, perform the restructuring and update links/instructions at
+   the same checkpoint.
+
+Split by durable engineering slice, not by conversation, day, or every small
+question. Git history preserves superseded organization; do not create a second
+chronological archive unless it has a distinct durable purpose.
+
 ---
 
 # 2. Roles
@@ -425,6 +464,38 @@ Codex should then state briefly:
 - what remains unknown;
 - what it is doing next and why.
 
+### Fresh-session / new-day brief
+
+At the beginning of a fresh Codex task, or when I explicitly say `Start a new
+day`, apply the global New-day kickoff contract in the current local sibling:
+`../agent-infra-specialization/AGENTS.md` (the repository's canonical long name
+is `agent-infrastructure-specialization`).
+
+Before substantive Cua work, derive the Day Start Brief from `CURRENT.md`, its
+linked investigation note, the live Cua checkout, and the global roadmap. Do not
+ask me to reconstruct the prior day.
+
+For Cua, the brief must identify:
+
+- today's exact Driver/runtime engineering question;
+- the default 5–6 focused-hour budget or my explicit override;
+- the primary engineering output and its Cua/September goal connection;
+- today's experiment/evidence plan, or why no runtime experiment is appropriate;
+- outcome-based major checkpoints with approximate focused time;
+- the minimum source/runtime/issue scope;
+- prediction, explain-back, design, contribution, or destructive-action gates;
+- the exact stopping boundary and first action.
+
+A normal day should produce at least one major engineering checkpoint plus a
+durable supporting artifact. Reading, note expansion, or image generation alone
+is not substantial progress. If the engineering boundary is reached early, do
+not broaden into another repository or unrelated Cua subsystem merely to fill
+the time budget.
+
+`Start a new day` means present the brief and wait for confirmation. `Start a
+new day and proceed with the recommended scope` allows routine safe work to
+begin after the brief while preserving all existing human ownership gates.
+
 Do NOT restart previous architecture merely because the conversation is new.
 
 Do NOT make me explain previous sessions again if the information already
@@ -567,6 +638,17 @@ problem, recommend at most one excellent targeted resource.
 
 Do not create a second curriculum or large reading list.
 
+Codex may proactively select a relevant Cua repository document, project-authored
+technical resource, or one targeted external resource when it materially
+strengthens understanding of the CURRENT engineering question.
+
+Follow the global just-in-time resource-selection rules in:
+
+`../agent-infrastructure-specialization/AGENTS.md`
+
+Do not create a reading curriculum. Return to the active Cua runtime path
+immediately after the resource has served its purpose.
+
 ---
 
 # 7. Understanding Levels
@@ -635,9 +717,20 @@ Diagram/document presentation conventions live in `CONVENTIONS.md` and may
 evolve as better patterns emerge.
 
 When a completed investigation slice has stable major conclusions and a durable
-recall diagram would materially help, Codex should proactively point that out.
-The checkpoint itself must not be blocked merely because polished image
-generation is unavailable.
+recall diagram or mind map would materially help, Codex must automatically
+generate/update a draft visual and show it at that checkpoint. Then ask the user
+for approval before copying, linking, or otherwise adding it to the durable
+workspace. The user should not need to remember to ask for the draft.
+
+After approval to add it, Codex should inspect it for factual and text accuracy,
+store it beside the owning README, embed it, and retire any now-superseded visual
+according to `CONVENTIONS.md`. A subsystem-level mind map should be generated as
+a draft whenever multiple completed slices now form a stable architecture worth
+retaining.
+
+If approval is declined or image generation is unavailable, record the visual
+as pending only when it remains useful. The prose checkpoint itself must not be
+blocked.
 
 ---
 
@@ -711,7 +804,10 @@ At a checkpoint, Codex should:
 2. update an associated experiment folder only when real evidence/reproduction
    material warrants it;
 3. rewrite `CURRENT.md` to represent the new live state;
-4. preserve/link only durable diagrams according to `CONVENTIONS.md`;
+4. audit visual coverage and documentation growth; proactively propose any new
+   canonical mind map/diagram or slice-based restructuring, obtain approval
+   before adding/moving/removing durable artifacts, then preserve/link only the
+   approved durable visuals according to `CONVENTIONS.md`;
 5. consult the global specialization and promote only what has actually been
    earned:
    - reusable invariant → `PATTERN_LEDGER.md`;
