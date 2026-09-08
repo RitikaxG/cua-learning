@@ -14,14 +14,53 @@ This investigation now has one completed slice and one next boundary:
 2. **Next boundary:** Daemon dies **during an active request**, where the caller
    may not know whether a side effect happened before the response was lost.
 
-## Canonical study map
+## Durable diagrams
 
-This is the final recall image for the completed between-request
-Daemon-replacement/session-recovery slice. It captures the major observations,
-corrected inferences, ownership boundaries, and cleanup paths established after
-the experiments and source trace.
+The investigation keeps two durable diagrams because they preserve two different
+views that remain useful:
+
+### Daemon lifecycle break flow
+
+This captures the original failure sequence: Daemon disappearance, stale socket
+pathname, surviving Proxy/session, `Connection refused`, and manual data-plane
+recovery.
+
+![Cua Driver daemon lifecycle break](./daemon_lifecycle_break_flowchart.png)
+
+### Daemon lifecycle / session recovery study map
+
+This is the consolidated recall image after the later experiments and source
+trace. It captures the corrected ownership model, lazy old-session admission,
+control-liveness role, and fallback cleanup path.
 
 ![Cua Driver daemon lifecycle and session recovery](./daemon_lifecycle_session_recovery.png)
+
+## Major conclusions at this checkpoint
+
+- Proxy and Daemon are separate process/failure domains.
+- The Proxy owns logical session identity continuity; the Daemon owns
+  process-local lifecycle/runtime state.
+- A socket pathname surviving Daemon death does not mean a listener or Daemon is
+  still alive.
+- Normal tool calls use fresh Unix connections, so a surviving Proxy can reach a
+  manually restored replacement Daemon at the same socket address.
+- The replacement Daemon does **not** recover the old Daemon's memory. It can
+  lazily admit the surviving Proxy's old, non-ended `session_id` and create fresh
+  lifecycle/session state under that identity.
+- Therefore the observed recovery is **identity continuity + fresh state
+  creation**, not state recovery.
+- `session_begin(session_id)` / the persistent control connection is not a
+  universal gate for every session-owned action. Its key lifecycle role is a
+  direct liveness signal: healthy Proxy death produces control EOF and immediate
+  session cleanup.
+- If that control relationship is lost during Daemon replacement and is not
+  restored, the recreated session still participates in activity tracking and
+  idle-TTL cleanup.
+- Proxy-process liveness and replacement-Daemon session liveness can diverge: the
+  Proxy may remain alive while its old S1 has already expired/tombstoned in the
+  replacement Daemon.
+- The between-request replacement/session-cleanup slice is understood enough to
+  move on. Daemon death **during an active request** remains untested.
 
 ## Healthy runtime design
 
