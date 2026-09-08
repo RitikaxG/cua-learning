@@ -156,9 +156,10 @@ whether there is a contribution candidate.
 - [Failure experiments](./failures/README.md)
 - [Daemon lifecycle investigation](./daemon-lifecycle/README.md)
 
-The daemon-lifecycle investigation keeps one canonical session-recovery study
-map that summarizes the completed between-request lifecycle conclusions. Scratch
-and intermediate reasoning diagrams are not retained by default.
+The daemon-lifecycle investigation deliberately keeps two durable diagrams:
+`daemon_lifecycle_break_flowchart.png` for the original failure sequence and
+`daemon_lifecycle_session_recovery.png` for the consolidated recovery/cleanup
+model. Scratch and intermediate reasoning diagrams are not retained by default.
 
 ## Deferred
 
