@@ -115,13 +115,14 @@ When the Daemon disappears **during an active tool request**, after dispatch may
 7. Run the first important lifecycle reproduction interactively as Human + ChatGPT when exact process/session/request preservation matters; Codex may automate/repeat later.
 8. Do not propose a retry/idempotency fix before expected vs actual behavior is established.
 
-## Canonical visual
+## Durable visuals
 
-Keep only the final consolidated image for this completed lifecycle slice:
+Keep these two diagrams for the completed lifecycle slice because they preserve different durable views:
 
-- `subsystems/driver-runtime/daemon-lifecycle/daemon_lifecycle_session_recovery.png`
+- `subsystems/driver-runtime/daemon-lifecycle/daemon_lifecycle_break_flowchart.png` — original Daemon-loss/failure/recovery sequence.
+- `subsystems/driver-runtime/daemon-lifecycle/daemon_lifecycle_session_recovery.png` — consolidated session-recovery, ownership, and cleanup model after the later experiments.
 
-Intermediate reasoning diagrams are working artifacts and are not retained in the durable repo by default.
+Scratch/intermediate reasoning diagrams are not retained by default.
 
 ## Stop boundary
 
@@ -135,4 +136,5 @@ First establish the active-request execution → possible effect → response bo
 - `subsystems/driver-runtime/happy-path/README.md`
 - `subsystems/driver-runtime/failures/README.md`
 - `subsystems/driver-runtime/daemon-lifecycle/README.md`
+- `subsystems/driver-runtime/daemon-lifecycle/daemon_lifecycle_break_flowchart.png`
 - `subsystems/driver-runtime/daemon-lifecycle/daemon_lifecycle_session_recovery.png`
