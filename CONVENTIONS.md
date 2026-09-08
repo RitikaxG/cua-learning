@@ -141,23 +141,17 @@ Avoid broad repository reconnaissance once a bounded engineering question exists
 
 ## 7. Diagrams
 
-Diagrams are part of the durable learning record, not disposable presentation artifacts.
+The repository will grow over months, so diagrams should be curated rather than accumulated.
 
-Preserve **every image the user deliberately creates or keeps because it materially helped understanding**, including:
+Prefer storing the **final / canonical recall image** for a completed investigation slice: the image that captures the major observed behavior, corrected mental model, important boundaries, and final conclusions after the experiment/source trace.
 
-- hand-drawn mental models
-- intermediate reasoning diagrams
-- experiment flowcharts
-- corrected architecture diagrams
-- final recall/study maps
+Do **not** store every intermediate whiteboard, scratch diagram, hypothesis sketch, or temporary reasoning image by default. Those are useful while learning but should remain working artifacts unless the user explicitly decides one has lasting value.
 
-Multiple images about the same subsystem are allowed when they capture different stages of understanding, different failure boundaries, or an important correction in the mental model. Do not delete an earlier useful image merely because a later polished image exists.
+A second diagram is justified only when it adds a genuinely different, durable view that the canonical image does not cover—for example a unique failure path or architecture view that remains important after the investigation is settled.
 
-If an older diagram contains an inference that later proved wrong, preserve it when it is useful to reconstruct the reasoning, but label the corresponding README text clearly as **superseded / corrected inference** so the image is not mistaken for the current contract.
+If a later final diagram subsumes an older one, prefer the final diagram in the durable repo. Git history already preserves the earlier evolution.
 
-Store investigation-specific images beside that investigation README. Embed or index the images from the README so a future session can discover them without browsing filenames manually.
-
-Avoid only accidental byte-for-byte duplicates or decorative images that did not contribute to understanding.
+Store investigation-specific canonical images beside that investigation README and embed them from the README so a future session can discover the final mental model immediately.
 
 Use previously approved diagrams as references for clarity and investigation storytelling.
 
@@ -184,6 +178,7 @@ Prefer showing:
 - what survives
 - what fails
 - recovery/fallback when relevant
+- corrected inference / final conclusion when relevant
 - the unresolved boundary when useful
 
 ## 8. Codex / checkpoint prompts
