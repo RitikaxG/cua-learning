@@ -186,8 +186,9 @@ This active-request execution/acknowledgement slice is GREEN enough.
 - [#3300](https://github.com/trycua/cua/issues/3300) was closed by merged PR
   `#3314`, which kept the permission-gated macOS Daemon stable and rejected work
   before execution with a typed pending status.
-- [#3337](https://github.com/trycua/cua/issues/3337) remains open for Linux/X11
-  external state leaked across abnormal exit.
+- [#3337](https://github.com/trycua/cua/issues/3337) was closed by merged PR
+  [#3601](https://github.com/trycua/cua/pull/3601), which repairs owned orphaned
+  Linux/X11 input-device state after abnormal exit.
 - [#3656](https://github.com/trycua/cua/issues/3656) remains open for a current
   Windows UIA crash that produces the same response-less transport symptom.
 
@@ -201,7 +202,8 @@ This is not a proven automatic-retry bug: the Proxy sends one request and does
 not replay it. Response loss is expected to be ambiguous without a stronger
 protocol.
 
-The concrete candidate is a client-visible error-contract improvement:
+The concrete gap is incomplete implementation/parity of RFC 2549's existing
+interrupted-action reporting contract:
 
 - connect-before-dispatch and post-write outcome-unknown failures both become
   generic JSON-RPC `-32603`;
@@ -215,13 +217,113 @@ Candidate invariant:
 > After request dispatch, a client-visible transport failure must not imply
 > “not executed” or “safe to retry”; execution outcome must be unknown.
 
-A bounded proposal could distinguish pre-dispatch connection failure from
-post-write outcome-unknown failure in the common daemon client/Proxy contract,
-with Unix/Windows protocol tests and accurate wording. Non-goals are automatic
-replay, deduplication, and exactly-once claims.
+A deeper duplicate/RFC audit found that RFC 2549 already requires interrupted
+actions to report completed, failed-before-side-effect, or unknown completion;
+its MCP slice and acceptance plan require honest interrupted-action reporting
+across adapters. PR #2561 implemented that RFC, but ordinary Daemon/MCP action
+errors still collapse the distinction.
 
-Because this changes a cross-platform public error contract and no direct issue
-selects the work, maintainer alignment is required before design or code.
+Therefore no new RFC is proposed. The current external artifact is a focused
+bug-form draft:
+
+- [RFC 2549 parity bug draft](./external-bug-form-draft.md)
+
+The previously approved design visual remains local learning material only:
+
+![Interrupted action reporting contract](./interrupted_action_reporting_contract.png)
+
+The obsolete new-RFC drafts and detailed proposal notes were removed after user
+approval. The bug draft has not been posted, and the visual is explicitly
+excluded from any external report.
+
+## Human #2686 architecture explain-back — 2026-09-11
+
+After guided vocabulary and HLD grounding, the human independently explained
+the issue path: the SDK opens a Unix-socket channel and sends the complete
+request; the separate Daemon performs the keyboard events; Linux waits 10 ms
+per character, so 16,000 characters require about 160 seconds before the final
+response can be constructed; the SDK's 120-second response timeout does not
+send cancellation, so the Daemon may continue after Python receives an error.
+The human also explained why blindly retrying a non-idempotent `type_text` can
+duplicate or corrupt surviving target state.
+
+This establishes the issue-level HLD and failure mechanism as GREEN enough.
+Runtime reproduction of #2686 and human-owned PR/test analysis remain YELLOW.
+
+## Issue #2686 reproduction — healthy baseline 2026-09-11
+
+A disposable Ubuntu 24.04 Linux arm64 container provided Xvfb, Openbox, GTK3,
+the real Cua Daemon built from commit
+`648c251400ebb356f6d7dbc3d0c835690b9bb4b4`, and the generated Python SDK/native
+library. The Cua checkout was mounted read-only; Cargo caches/build artifacts
+and all fixture state remained in disposable Docker storage or `/private/tmp`.
+
+The first ambient-desktop-focus attempts were invalid: the GTK entry received
+only changing suffixes of the short marker. Adding a delay and repeatedly
+presenting the GTK window did not establish stable focus. An exact-window typed
+call then returned a structured `background_unavailable` refusal because Linux
+X11 has no focus-free input backend for that target. These runs tested fixture
+setup, not issue #2686.
+
+The valid baseline used an exact-window foreground click to focus the GTK entry,
+then invoked the original desktop-scope Python `type_text` path with marker
+`CUA_2686_HEALTHY`.
+
+OBSERVED:
+
+- Python returned success in 0.197 seconds;
+- the target recorded exactly all 16 marker characters;
+- the Daemon remained alive after the call.
+
+The 16,000-character action has not run. Its prediction gate is now active.
+
+## Preliminary Codex-only PR #2743 audit — 2026-09-10
+
+This section preserves source findings for later validation. It is not yet the
+human's review: the human explicitly stopped publication planning to first
+understand the relevant architecture, reproduce issue #2686, and inspect the PR
+from that evidence.
+
+PR #2743 is the existing implementation path for issue #2686. Its single
+commit changes `cua-driver-core::daemon::send_request` from a fixed 120-second
+response deadline to a Linux `type_text`/`type_text_chars`-aware deadline and
+adds a process-wide environment override. It does not add replay or alter
+Daemon execution order.
+
+What it fixes:
+
+- a healthy Linux `type_text` using the current 10 ms per-character XTest pace
+  can wait beyond 120 seconds;
+- callers can override the daemon response deadline;
+- ordinary requests retain the current 120-second default.
+
+What it leaves unresolved:
+
+- `send_request` still returns one untyped `anyhow::Error` for connect, write,
+  response timeout, EOF, read, and decode failures;
+- the ordinary SDK Daemon action path still maps all such failures to
+  `DriverError::Transport`;
+- the MCP Proxy still maps them to JSON-RPC `-32603` without stable completion
+  data;
+- therefore a timeout or response loss after the write begins remains
+  semantically `Unknown`, but callers receive no typed indication of that fact.
+
+This is a reviewable gap because issue #2686 itself asks for typed unknown
+outcome after post-dispatch timeout, and RFC 2549 requires interrupted actions
+to report known or unknown completion honestly. Extending the deadline reduces
+one predictable false timeout; it cannot prove whether an action completed when
+the extended deadline or response path still fails.
+
+There is also a bounded deadline-policy defect: the PR applies a fixed 10 ms per
+character estimate to `type_text_chars`, but that tool defaults to 30 ms and
+accepts arbitrary `delay_ms`. A sufficiently long default or custom-delay call
+can therefore still outlive the calculated deadline.
+
+The PR was revalidated as open on 2026-09-10. It has one maintainer
+`CHANGES_REQUESTED` review because the Python fake daemon responds immediately,
+so the test passes under the old 120-second implementation. It is also
+merge-conflicted, 594 commits behind current `origin/main`, and has had no
+update since 2026-08-27. The existing review objection should not be duplicated.
 
 ## Source landmarks
 
@@ -232,6 +334,6 @@ selects the work, maintainer alignment is required before design or code.
 
 ## Stop boundary
 
-Do not repeat the marker, implement replay/exactly-once machinery, choose an
-error schema, or begin source changes without human contribution commitment and
-maintainer alignment.
+Do not repeat the marker, open the bug issue, upload its visual, or begin source
+changes until the human reviews the focused draft and explicitly authorizes the
+external step. Do not create a new RFC for this already-governed contract.
